@@ -2,50 +2,50 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>GTA 3D Dakar Open World</title>
+<title>GTA Dakar Console Web</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { margin:0; overflow:hidden; touch-action:none; font-family:Arial; }
+body{margin:0;overflow:hidden;font-family:Arial;touch-action:none;}
 
 #hud{
 position:fixed;
-top:10px;
-left:10px;
+top:10px;left:10px;
 color:white;
 background:rgba(0,0,0,0.6);
 padding:10px;
 border-radius:8px;
 z-index:10;
+font-size:14px;
 }
 
 .btn{
 position:fixed;
-width:70px;
-height:70px;
-background:rgba(255,255,255,0.2);
+width:70px;height:70px;
+background:rgba(255,255,255,0.15);
 color:white;
 text-align:center;
 line-height:70px;
-font-size:25px;
+font-size:24px;
 border-radius:15px;
 user-select:none;
 z-index:10;
 }
 
-#up{bottom:160px;left:80px;}
-#down{bottom:40px;left:80px;}
+#up{bottom:160px;left:90px;}
+#down{bottom:40px;left:90px;}
 #left{bottom:100px;left:10px;}
-#right{bottom:100px;left:150px;}
+#right{bottom:100px;left:170px;}
 </style>
 </head>
 
 <body>
 
 <div id="hud">
-🌍 GTA 3D DAKAR<br>
-💰 0 ⭐ 0
+🌍 GTA DAKAR CONSOLE<br>
+💰 <span id="money">0</span><br>
+⭐ <span id="wanted">0</span>
 </div>
 
 <div id="up" class="btn">⬆️</div>
@@ -56,62 +56,105 @@ z-index:10;
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
 <script>
-// 🌍 SCÈNE
+
+// 🌍 SCÈNE CINÉMATIQUE
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb); // ciel
+scene.background = new THREE.Color(0x9fd3ff);
+scene.fog = new THREE.Fog(0x9fd3ff, 50, 300);
 
 // 📷 CAMERA
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,1000);
 
-// 🎮 RENDERER
+// 🎮 RENDERER (qualité console)
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// 🌍 SOL (VILLE DAKAR)
+// ☀️ LUMIÈRE CINÉMATIQUE
+const sun = new THREE.DirectionalLight(0xffffff,1.2);
+sun.position.set(80,120,50);
+sun.castShadow = true;
+scene.add(sun);
+
+scene.add(new THREE.AmbientLight(0x555555));
+
+// 🌍 SOL DAKAR (texture stylisée)
 const ground = new THREE.Mesh(
-new THREE.PlaneGeometry(500,500),
-new THREE.MeshBasicMaterial({color:0x2ecc71})
+new THREE.PlaneGeometry(800,800),
+new THREE.MeshStandardMaterial({color:0x1f8a4c})
 );
 ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
 scene.add(ground);
 
-// 🏙 BÂTIMENTS (Dakar stylisé)
-function addBuilding(x,z,color=0x888888){
+// 🏙 VILLE DENSE (Dakar style console)
+function addBuilding(x,z){
+const h = 10 + Math.random()*80;
+
 const b = new THREE.Mesh(
-new THREE.BoxGeometry(10,30,10),
-new THREE.MeshBasicMaterial({color})
+new THREE.BoxGeometry(10,h,10),
+new THREE.MeshStandardMaterial({
+color: Math.random()>0.5?0x555555:0x333333,
+roughness:0.8,
+metalness:0.1
+})
 );
-b.position.set(x,15,z);
+
+b.position.set(x,h/2,z);
+b.castShadow = true;
+b.receiveShadow = true;
 scene.add(b);
 }
 
-for(let i=0;i<30;i++){
-addBuilding((Math.random()-0.5)*400, (Math.random()-0.5)*400, 0x555555);
+for(let i=0;i<200;i++){
+addBuilding((Math.random()-0.5)*700,(Math.random()-0.5)*700);
 }
 
-// 🚗 VOITURE
-const car = new THREE.Mesh(
-new THREE.BoxGeometry(3,2,5),
-new THREE.MeshBasicMaterial({color:0xffffff})
+// 🛣 ROUTES PRINCIPALES
+const roadMat = new THREE.MeshStandardMaterial({color:0x222222});
+for(let i=0;i<12;i++){
+const road = new THREE.Mesh(
+new THREE.PlaneGeometry(800,10),
+roadMat
 );
-car.position.y = 1;
+road.rotation.x=-Math.PI/2;
+road.position.z=i*70-350;
+road.receiveShadow=true;
+scene.add(road);
+}
+
+// 🚗 VOITURE (niveau console)
+const car = new THREE.Mesh(
+new THREE.BoxGeometry(4,2,7),
+new THREE.MeshStandardMaterial({
+color:0x0066ff,
+metalness:0.7,
+roughness:0.3
+})
+);
+car.position.y=1;
+car.castShadow=true;
 scene.add(car);
 
-// 🚓 POLICE (IA SIMPLE)
+// 👮 POLICE IA PRO
 const police = new THREE.Mesh(
-new THREE.BoxGeometry(3,2,5),
-new THREE.MeshBasicMaterial({color:0xff0000})
+new THREE.BoxGeometry(4,2,7),
+new THREE.MeshStandardMaterial({color:0xff0000})
 );
-police.position.set(20,1,20);
+police.position.set(40,1,40);
+police.castShadow=true;
 scene.add(police);
 
-// 🌤 lumière
-scene.add(new THREE.AmbientLight(0xffffff));
+// 🎯 MISSION
+let mission={x:100,z:100};
 
-// caméra
-camera.position.set(0,20,30);
-camera.lookAt(car.position);
+// 💰 GAME DATA
+let money=0;
+let wanted=0;
+
+// 📷 CAMERA OFFSET (cinématique)
+const offset = new THREE.Vector3(0,18,28);
 
 // 🎮 CONTROLES
 let c={up:false,down:false,left:false,right:false};
@@ -128,24 +171,41 @@ document.getElementById("left").ontouchend=()=>c.left=false;
 document.getElementById("right").ontouchstart=()=>c.right=true;
 document.getElementById("right").ontouchend=()=>c.right=false;
 
-// 🚗 UPDATE
+// 🚗 UPDATE GAME
 function update(){
 
-if(c.up) car.position.z -= 0.6;
-if(c.down) car.position.z += 0.6;
-if(c.left) car.position.x -= 0.6;
-if(c.right) car.position.x += 0.6;
+// conduite fluide
+if(c.up) car.position.z -= 1;
+if(c.down) car.position.z += 1;
+if(c.left) car.position.x -= 1;
+if(c.right) car.position.x += 1;
 
-// 👮 police IA simple (poursuite)
-police.position.lerp(car.position,0.01);
+// 👮 police IA avancée
+police.position.x += (car.position.x - police.position.x)*0.03;
+police.position.z += (car.position.z - police.position.z)*0.03;
 
-// caméra suit
-camera.position.x = car.position.x;
-camera.position.z = car.position.z + 25;
+// 🎯 mission
+let dx=car.position.x-mission.x;
+let dz=car.position.z-mission.z;
+
+if(Math.sqrt(dx*dx+dz*dz)<6){
+money+=100;
+wanted=Math.min(5,wanted+1);
+
+mission.x=(Math.random()-0.5)*300;
+mission.z=(Math.random()-0.5)*300;
+
+document.getElementById("money").innerText=money;
+document.getElementById("wanted").innerText=wanted;
+}
+
+// 📷 caméra cinématique (console style)
+camera.position.x = car.position.x + offset.x;
+camera.position.y = car.position.y + offset.y;
+camera.position.z = car.position.z + offset.z;
 camera.lookAt(car.position);
 }
 
-// 🎮 LOOP
 function animate(){
 requestAnimationFrame(animate);
 update();
@@ -153,12 +213,13 @@ renderer.render(scene,camera);
 }
 animate();
 
-// 📱 resize mobile
-window.addEventListener("resize",()=>{
-camera.aspect=window.innerWidth/window.innerHeight;
+// 📱 mobile resize
+addEventListener("resize",()=>{
+camera.aspect=innerWidth/innerHeight;
 camera.updateProjectionMatrix();
-renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setSize(innerWidth,innerHeight);
 });
+
 </script>
 
 </body>
