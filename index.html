@@ -1,26 +1,55 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Galsen Trip V2.5</title>
+<title>Galsen Trip V3</title>
 
 <style>
-body { margin:0; overflow:hidden; }
-canvas { display:block; }
+body { margin:0; overflow:hidden; font-family:Arial; }
 
-#joystickArea {
+/* MENU */
+#menu {
+  position:absolute;
+  width:100%;
+  height:100%;
+  background:#000;
+  color:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  z-index:100;
+}
+
+button{
+  padding:12px 20px;
+  font-size:18px;
+  margin-top:10px;
+}
+
+/* HUD */
+#hud {
+  position:absolute;
+  top:10px;
+  left:10px;
+  color:white;
+  z-index:10;
+}
+
+/* joystick */
+#joystickArea{
   position:absolute;
   bottom:40px;
   left:40px;
   width:140px;
   height:140px;
-  background:rgba(255,255,255,0.25);
+  background:rgba(255,255,255,0.2);
   border-radius:50%;
   z-index:10;
 }
 
-#stick {
+#stick{
   position:absolute;
   width:60px;
   height:60px;
@@ -28,247 +57,200 @@ canvas { display:block; }
   border-radius:50%;
   top:40px;
   left:40px;
-  touch-action:none;
-}
-
-#hud {
-  position:absolute;
-  top:10px;
-  left:10px;
-  color:white;
-  font-family:Arial;
-  z-index:20;
-  font-size:14px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="hud">
-💰 Argent: <span id="money">0</span><br>
-🚨 Recherche: <span id="wanted">0</span><br>
-📍 Zone: Dakar (Prototype)
+<div id="menu">
+  <h1>🌍 Galsen Trip V3</h1>
+  <button onclick="startGame()">Jouer</button>
 </div>
 
-<div id="joystickArea">
-  <div id="stick"></div>
+<div id="hud">
+💰 <span id="money">0</span> |
+🚨 <span id="wanted">0</span> |
+⏰ <span id="time">12:00</span> |
+🌤️ <span id="weather">Soleil</span>
 </div>
+
+<div id="joystickArea"><div id="stick"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
 <script>
 
 let scene,camera,renderer,car;
-
 let dx=0,dy=0;
-let speed=0.25;
 
-let money=0;
-let wanted=0;
+let money=0,wanted=0;
 
-let pnjList=[];
-let traffic=[];
+let time=12;
+let weather="Soleil";
 
-init();
-animate();
+let birds=[];
+
+function startGame(){
+  document.getElementById("menu").style.display="none";
+  init();
+  animate();
+}
 
 function init(){
 
-  scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x87ceeb);
+scene=new THREE.Scene();
 
-  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,2000);
 
-  renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(innerWidth,innerHeight);
-  document.body.appendChild(renderer.domElement);
+renderer=new THREE.WebGLRenderer();
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
 
-  // sol
-  const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(600,600),
-    new THREE.MeshBasicMaterial({color:0x2ecc71})
+// lumière jour/nuit
+const light=new THREE.AmbientLight(0xffffff,1);
+scene.add(light);
+
+// sol énorme
+let ground=new THREE.Mesh(
+  new THREE.PlaneGeometry(2000,2000),
+  new THREE.MeshBasicMaterial({color:0x1f8b4c})
+);
+ground.rotation.x=-Math.PI/2;
+scene.add(ground);
+
+// routes + lignes
+createRoad(0,0,2000,40);
+
+// voiture joueur (cube rouge temporaire)
+car=new THREE.Mesh(
+  new THREE.BoxGeometry(3,1,5),
+  new THREE.MeshBasicMaterial({color:0xff0000})
+);
+car.position.y=0.5;
+scene.add(car);
+
+// voitures IA
+for(let i=0;i<20;i++){
+  let v=new THREE.Mesh(
+    new THREE.BoxGeometry(3,1,5),
+    new THREE.MeshBasicMaterial({color:0xffff00})
   );
-  ground.rotation.x=-Math.PI/2;
-  scene.add(ground);
-
-  // routes
-  createRoad(0,0,400,25);
-  createRoad(0,0,25,400);
-
-  // joueur
-  car=new THREE.Mesh(
-    new THREE.BoxGeometry(2,1,4),
-    new THREE.MeshBasicMaterial({color:0xff0000})
-  );
-  car.position.y=0.5;
-  scene.add(car);
-
-  camera.position.set(0,6,12);
-
-  // PNJ
-  for(let i=0;i<15;i++){
-    let p=createHuman();
-    p.position.set((Math.random()-0.5)*250,0,(Math.random()-0.5)*250);
-
-    p.dir=Math.random()*Math.PI*2;
-    p.timer=0;
-    p.speed=0.02+Math.random()*0.03;
-
-    scene.add(p);
-    pnjList.push(p);
-  }
-
-  // trafic
-  for(let i=0;i<8;i++){
-    let t=new THREE.Mesh(
-      new THREE.BoxGeometry(2,1,4),
-      new THREE.MeshBasicMaterial({color:0xffff00})
-    );
-
-    t.position.set((Math.random()-0.5)*250,0.5,(Math.random()-0.5)*250);
-    t.speed=0.06;
-
-    scene.add(t);
-    traffic.push(t);
-  }
-
-  setupJoystick();
-  window.addEventListener("resize",onResize);
+  v.position.set(Math.random()*400-200,0.5,Math.random()*400-200);
+  v.speed=0.5+Math.random();
+  scene.add(v);
 }
 
-// humain
-function createHuman(){
-  let g=new THREE.Group();
-
-  let body=new THREE.Mesh(
-    new THREE.BoxGeometry(1,1.5,0.6),
-    new THREE.MeshBasicMaterial({color:0x3366ff})
+// immeubles simples
+for(let i=0;i<30;i++){
+  let b=new THREE.Mesh(
+    new THREE.BoxGeometry(20,Math.random()*80+20,20),
+    new THREE.MeshBasicMaterial({color:0x888888})
   );
-  body.position.y=1.2;
-
-  let head=new THREE.Mesh(
-    new THREE.BoxGeometry(0.8,0.8,0.8),
-    new THREE.MeshBasicMaterial({color:0xffcc99})
-  );
-  head.position.y=2.3;
-
-  g.add(body);
-  g.add(head);
-
-  return g;
+  b.position.set(Math.random()*800-400,0,Math.random()*800-400);
+  scene.add(b);
 }
 
-// route
+// oiseaux
+for(let i=0;i<15;i++){
+  let bird=new THREE.Mesh(
+    new THREE.SphereGeometry(1),
+    new THREE.MeshBasicMaterial({color:0x000000})
+  );
+  bird.position.set(Math.random()*500,50+Math.random()*50,Math.random()*500);
+  bird.speed=0.5+Math.random();
+  birds.push(bird);
+  scene.add(bird);
+}
+
+camera.position.set(0,10,15);
+
+setupJoystick();
+}
+
 function createRoad(x,z,w,h){
-  let road=new THREE.Mesh(
-    new THREE.PlaneGeometry(w,h),
-    new THREE.MeshBasicMaterial({color:0x444444})
-  );
-  road.rotation.x=-Math.PI/2;
-  road.position.set(x,0.01,z);
-  scene.add(road);
+
+let road=new THREE.Mesh(
+  new THREE.PlaneGeometry(w,h),
+  new THREE.MeshBasicMaterial({color:0x333333})
+);
+road.rotation.x=-Math.PI/2;
+scene.add(road);
+
+// ligne centrale
+let line=new THREE.Mesh(
+  new THREE.PlaneGeometry(w,0.5),
+  new THREE.MeshBasicMaterial({color:0xffff00})
+);
+line.rotation.x=-Math.PI/2;
+line.position.y=0.01;
+scene.add(line);
 }
 
 function animate(){
-  requestAnimationFrame(animate);
 
-  // joueur movement (normalisé)
-  let len=Math.sqrt(dx*dx+dy*dy);
-  if(len>1){dx/=len;dy/=len;}
+requestAnimationFrame(animate);
 
-  car.position.x+=dx*speed;
-  car.position.z+=dy*speed;
+// voiture
+car.position.x+=dx*0.5;
+car.position.z+=dy*0.5;
 
-  // argent
-  money+=0.03;
-  document.getElementById("money").innerText=Math.floor(money);
+// jour/nuit
+time+=0.01;
+if(time>24)time=0;
 
-  // wanted descend
-  wanted=Math.max(0,wanted-0.02);
-  document.getElementById("wanted").innerText=Math.floor(wanted);
+document.getElementById("time").innerText=time.toFixed(1);
 
-  // collisions simples PNJ
-  pnjList.forEach(p=>{
-    p.position.x+=Math.cos(p.dir)*p.speed;
-    p.position.z+=Math.sin(p.dir)*p.speed;
+// météo aléatoire
+if(Math.random()<0.001){
+  weather=["Soleil","Pluie","Nuage"][Math.floor(Math.random()*3)];
+}
+document.getElementById("weather").innerText=weather;
 
-    p.timer++;
-    if(p.timer>120){
-      p.dir=Math.random()*Math.PI*2;
-      p.timer=0;
-    }
+// oiseaux vol
+birds.forEach(b=>{
+  b.position.x+=b.speed;
+  if(b.position.x>500)b.position.x=-500;
+});
 
-    if(distance(car,p)<3){
-      wanted+=0.5;
-    }
-  });
+// caméra follow
+camera.position.x=car.position.x;
+camera.position.z=car.position.z+15;
+camera.lookAt(car.position);
 
-  // trafic
-  traffic.forEach(t=>{
-    t.position.x+=t.speed;
-    if(t.position.x>250)t.position.x=-250;
-
-    if(distance(car,t)<4){
-      wanted+=1;
-    }
-  });
-
-  // caméra fluide
-  camera.position.x+=(car.position.x-camera.position.x)*0.1;
-  camera.position.z+=(car.position.z+12-camera.position.z)*0.1;
-  camera.lookAt(car.position);
-
-  renderer.render(scene,camera);
+renderer.render(scene,camera);
 }
 
-// distance helper
-function distance(a,b){
-  return Math.sqrt(
-    (a.position.x-b.position.x)**2+
-    (a.position.z-b.position.z)**2
-  );
-}
-
-// joystick
 function setupJoystick(){
-  const stick=document.getElementById("stick");
-  const area=document.getElementById("joystickArea");
+const stick=document.getElementById("stick");
+const area=document.getElementById("joystickArea");
 
-  const center=70,max=50;
+let center=70,max=50;
 
-  function move(e){
-    let t=e.touches[0];
-    let r=area.getBoundingClientRect();
+area.addEventListener("touchmove",(e)=>{
+  let t=e.touches[0];
+  let r=area.getBoundingClientRect();
 
-    let x=t.clientX-r.left-center;
-    let y=t.clientY-r.top-center;
+  let x=t.clientX-r.left-center;
+  let y=t.clientY-r.top-center;
 
-    let d=Math.sqrt(x*x+y*y);
-    if(d>max){x=x/d*max;y=y/d*max;}
+  let d=Math.sqrt(x*x+y*y);
+  if(d>max){x=x/d*max;y=y/d*max;}
 
-    stick.style.transform=`translate(${x}px,${y}px)`;
+  stick.style.transform=`translate(${x}px,${y}px)`;
 
-    dx=x/max;
-    dy=y/max;
-  }
+  dx=x/max;
+  dy=y/max;
+});
 
-  area.addEventListener("touchstart",move);
-  area.addEventListener("touchmove",move);
-
-  area.addEventListener("touchend",()=>{
-    dx=0;dy=0;
-    stick.style.transform="translate(0px,0px)";
-  });
-}
-
-function onResize(){
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
+area.addEventListener("touchend",()=>{
+  dx=0;dy=0;
+  stick.style.transform="translate(0,0)";
+});
 }
 
 </script>
+
 </body>
 </html>
   
