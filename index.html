@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Galsen Trip V2.2</title>
+<title>Galsen Trip V2.3</title>
 
 <style>
 body { margin: 0; overflow: hidden; }
@@ -32,14 +32,15 @@ canvas { display: block; }
   touch-action: none;
 }
 
-/* 💰 UI */
+/* 🧭 HUD */
 #hud {
   position: absolute;
-  top: 15px;
-  left: 15px;
+  top: 10px;
+  left: 10px;
   color: white;
   font-family: Arial;
   z-index: 20;
+  font-size: 14px;
 }
 </style>
 </head>
@@ -48,7 +49,8 @@ canvas { display: block; }
 
 <div id="hud">
 💰 Argent: <span id="money">0</span><br>
-🚨 Recherche: <span id="wanted">0</span>
+🚨 Recherche: <span id="wanted">0</span><br>
+🎯 Mission: <span id="mission">Aucune</span>
 </div>
 
 <div id="joystickArea">
@@ -62,133 +64,139 @@ canvas { display: block; }
 let scene, camera, renderer;
 let car;
 
-let dx = 0;
-let dy = 0;
-let speed = 0.35;
+let dx=0,dy=0;
+let speed=0.35;
 
-let money = 0;
-let wanted = 0;
+let money=0;
+let wanted=0;
 
-let pnjList = [];
-let policeList = [];
-let trafficList = [];
+// 🎯 mission system
+let missionActive=false;
+let missionTarget;
+
+// 🧍 police
+let policeList=[];
 
 init();
 animate();
 
-function init() {
+function init(){
 
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x87ceeb);
 
-  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(innerWidth, innerHeight);
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // 🌍 sol (Dakar simplifié)
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(400, 400),
-    new THREE.MeshBasicMaterial({ color: 0x2ecc71 })
+  // 🌍 ville (Dakar simplifié)
+  let ground=new THREE.Mesh(
+    new THREE.PlaneGeometry(400,400),
+    new THREE.MeshBasicMaterial({color:0x2ecc71})
   );
-  ground.rotation.x = -Math.PI / 2;
+  ground.rotation.x=-Math.PI/2;
   scene.add(ground);
 
   // 🚗 joueur
-  car = new THREE.Mesh(
+  car=new THREE.Mesh(
     new THREE.BoxGeometry(2,1,4),
-    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    new THREE.MeshBasicMaterial({color:0xff0000})
   );
-  car.position.y = 0.5;
+  car.position.y=0.5;
   scene.add(car);
 
   camera.position.set(0,6,12);
 
-  // 🧍 PNJ
-  for (let i=0;i<10;i++){
-    let p = createBox(0x0000ff, 2,3,2);
-    p.position.set(rand(),1.5,rand());
-    scene.add(p);
-    pnjList.push(p);
-  }
-
   // 🚓 police
-  for (let i=0;i<3;i++){
-    let p = createBox(0x000000, 2,2,4);
+  for(let i=0;i<4;i++){
+    let p=new THREE.Mesh(
+      new THREE.BoxGeometry(2,2,4),
+      new THREE.MeshBasicMaterial({color:0x000000})
+    );
     p.position.set(rand(),1,rand());
-    p.speed = 0.04;
+    p.speed=0.05;
     scene.add(p);
     policeList.push(p);
   }
 
-  // 🚗 trafic
-  for (let i=0;i<5;i++){
-    let t = createBox(0xffff00, 2,1,4);
-    t.position.set(rand(),0.5,rand());
-    t.speed = 0.02;
-    scene.add(t);
-    trafficList.push(t);
-  }
+  // 🎯 première mission
+  createMission();
 
   setupJoystick();
-  window.addEventListener("resize", onResize);
-}
-
-function createBox(color,x,y,z){
-  return new THREE.Mesh(
-    new THREE.BoxGeometry(x,y,z),
-    new THREE.MeshBasicMaterial({color})
-  );
-}
-
-function rand(){
-  return (Math.random()-0.5)*200;
+  window.addEventListener("resize",onResize);
 }
 
 function animate(){
   requestAnimationFrame(animate);
 
-  // 🚗 mouvement joueur
-  car.position.x += dx * speed;
-  car.position.z += dy * speed;
+  // 🚗 déplacement
+  car.position.x+=dx*speed;
+  car.position.z+=dy*speed;
 
-  // 💰 gain d’argent (roulage)
-  money += 0.05;
-  document.getElementById("money").innerText = Math.floor(money);
+  // 💰 argent
+  money+=0.05;
+  document.getElementById("money").innerText=Math.floor(money);
 
-  // 🚨 wanted level (simple)
-  if (Math.random() < 0.001) wanted = Math.min(5, wanted+1);
-  document.getElementById("wanted").innerText = wanted;
-
-  // 🧍 PNJ mouvement
-  pnjList.forEach((p,i)=>{
-    p.position.x += Math.sin(Date.now()*0.001+i)*0.03;
-    p.position.z += Math.cos(Date.now()*0.001+i)*0.03;
-  });
+  // 🚨 wanted level (augmente si tu bouges vite)
+  if(Math.abs(dx)+Math.abs(dy)>1.2){
+    wanted=Math.min(5,wanted+0.01);
+  } else {
+    wanted=Math.max(0,wanted-0.01);
+  }
+  document.getElementById("wanted").innerText=Math.floor(wanted);
 
   // 🚓 police chase
   policeList.forEach(p=>{
-    p.position.x += (car.position.x - p.position.x)*0.01;
-    p.position.z += (car.position.z - p.position.z)*0.01;
+    let dirX=car.position.x-p.position.x;
+    let dirZ=car.position.z-p.position.z;
+
+    p.position.x+=dirX*p.speed;
+    p.position.z+=dirZ*p.speed;
+
+    // collision police
+    if(Math.abs(dirX)<2 && Math.abs(dirZ)<2){
+      money=Math.max(0,money-1);
+    }
   });
 
-  // 🚗 trafic simple
-  trafficList.forEach(t=>{
-    t.position.z += t.speed;
-    if(t.position.z > 100) t.position.z = -100;
-  });
+  // 🎯 mission check
+  if(missionActive){
+    let dxm=car.position.x-missionTarget.x;
+    let dzm=car.position.z-missionTarget.z;
 
-  camera.position.x = car.position.x;
-  camera.position.z = car.position.z + 12;
+    if(Math.sqrt(dxm*dxm+dzm*dzm)<5){
+      missionActive=false;
+      money+=100;
+      document.getElementById("mission").innerText="Réussie (+100💰)";
+      setTimeout(createMission,2000);
+    }
+  }
+
+  camera.position.x=car.position.x;
+  camera.position.z=car.position.z+12;
   camera.lookAt(car.position);
 
   renderer.render(scene,camera);
 }
 
+// 🎯 mission system
+function createMission(){
+  missionTarget={
+    x:(Math.random()-0.5)*150,
+    z:(Math.random()-0.5)*150
+  };
+  missionActive=true;
+
+  document.getElementById("mission").innerText="Va au point rouge";
+}
+
+// 🎮 joystick
 function setupJoystick(){
-  const stick = document.getElementById("stick");
-  const area = document.getElementById("joystickArea");
+
+  const stick=document.getElementById("stick");
+  const area=document.getElementById("joystickArea");
 
   const center=70,max=50;
 
@@ -216,6 +224,10 @@ function setupJoystick(){
     dx=0;dy=0;
     stick.style.transform="translate(0px,0px)";
   });
+}
+
+function rand(){
+  return (Math.random()-0.5)*200;
 }
 
 function onResize(){
