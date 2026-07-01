@@ -11,7 +11,11 @@ body {
   overflow: hidden;
 }
 
-/* 🎮 zone joystick */
+canvas {
+  display: block;
+}
+
+/* 🎮 joystick */
 #joystickArea {
   position: absolute;
   bottom: 40px;
@@ -20,9 +24,9 @@ body {
   height: 140px;
   background: rgba(255,255,255,0.2);
   border-radius: 50%;
+  z-index: 10;
 }
 
-/* 🕹️ stick */
 #stick {
   position: absolute;
   width: 60px;
@@ -32,11 +36,6 @@ body {
   top: 40px;
   left: 40px;
   touch-action: none;
-}
-
-/* canvas au-dessus */
-canvas {
-  display: block;
 }
 </style>
 </head>
@@ -50,30 +49,36 @@ canvas {
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
 <script>
-let scene, camera, renderer;
-let car;
+let scene, camera, renderer, car;
 
-let joystick = {
-  active: false,
-  dx: 0,
-  dy: 0
-};
+// 🎮 direction joystick
+let dx = 0;
+let dy = 0;
 
 init();
 animate();
 
 function init() {
+
+  // 🌍 scène
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87ceeb);
 
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  // 📷 caméra
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
 
+  // 🎮 renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // 🌍 sol
-  let ground = new THREE.Mesh(
+  // 🌱 sol
+  const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200),
     new THREE.MeshBasicMaterial({ color: 0x2ecc71 })
   );
@@ -89,19 +94,20 @@ function init() {
   scene.add(car);
 
   camera.position.set(0, 5, 10);
-  camera.lookAt(car.position);
 
   setupJoystick();
+
   window.addEventListener("resize", onResize);
 }
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // 🚗 déplacement avec joystick
-  car.position.x += joystick.dx * 0.1;
-  car.position.z += joystick.dy * 0.1;
+  // 🚗 mouvement voiture
+  car.position.x += dx * 0.2;
+  car.position.z += dy * 0.2;
 
+  // 📷 caméra suit voiture
   camera.position.x = car.position.x;
   camera.position.z = car.position.z + 10;
   camera.lookAt(car.position);
@@ -109,50 +115,46 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function onResize(){
-  camera.aspect = window.innerWidth/window.innerHeight;
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-/* 🎮 JOYSTICK LOGIC */
-function setupJoystick(){
+/* 🎮 JOYSTICK */
+function setupJoystick() {
+
   const stick = document.getElementById("stick");
   const area = document.getElementById("joystickArea");
 
-  let centerX = 70;
-  let centerY = 70;
-  let maxDist = 50;
+  const center = 70;
+  const maxDist = 50;
 
-  area.addEventListener("touchstart", (e)=>{
-    joystick.active = true;
-  });
+  area.addEventListener("touchmove", (e) => {
 
-  area.addEventListener("touchmove", (e)=>{
-    let touch = e.touches[0];
+    let t = e.touches[0];
     let rect = area.getBoundingClientRect();
 
-    let x = touch.clientX - rect.left - centerX;
-    let y = touch.clientY - rect.top - centerY;
+    let x = t.clientX - rect.left - center;
+    let y = t.clientY - rect.top - center;
 
     let dist = Math.sqrt(x*x + y*y);
 
-    if(dist > maxDist){
-      x *= maxDist/dist;
-      y *= maxDist/dist;
+    if (dist > maxDist) {
+      x = (x / dist) * maxDist;
+      y = (y / dist) * maxDist;
     }
 
     stick.style.transform = `translate(${x}px, ${y}px)`;
 
-    joystick.dx = x / maxDist;
-    joystick.dy = y / maxDist;
+    dx = x / maxDist;
+    dy = y / maxDist;
   });
 
-  area.addEventListener("touchend", ()=>{
-    joystick.active = false;
-    joystick.dx = 0;
-    joystick.dy = 0;
-    stick.style.transform = `translate(0px, 0px)`;
+  area.addEventListener("touchend", () => {
+    dx = 0;
+    dy = 0;
+    stick.style.transform = "translate(0px,0px)";
   });
 }
 </script>
