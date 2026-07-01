@@ -22,7 +22,7 @@ canvas {
   left: 40px;
   width: 140px;
   height: 140px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.25);
   border-radius: 50%;
   z-index: 10;
 }
@@ -49,12 +49,14 @@ canvas {
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
 <script>
-let scene, camera, renderer, car;
 
-// 🎮 joueur
+let scene, camera, renderer;
+let car;
+
+// 🎮 mouvement joueur
 let dx = 0;
 let dy = 0;
-let speed = 0.3;
+let speed = 0.35;
 
 // 🧍 PNJ
 let pnjList = [];
@@ -83,7 +85,7 @@ function init() {
 
   // 🌱 sol
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
+    new THREE.PlaneGeometry(300, 300),
     new THREE.MeshBasicMaterial({ color: 0x2ecc71 })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -97,25 +99,25 @@ function init() {
   car.position.y = 0.5;
   scene.add(car);
 
-  // 🧍 PNJ (5 personnes)
-  for (let i = 0; i < 5; i++) {
+  // 🧍 PNJ (VISIBLE + GROS)
+  for (let i = 0; i < 10; i++) {
 
     let pnj = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 2, 1),
+      new THREE.BoxGeometry(2, 3, 2), // 🔥 plus grand
       new THREE.MeshBasicMaterial({ color: 0x0000ff })
     );
 
-    pnj.position.x = (Math.random() - 0.5) * 60;
-    pnj.position.z = (Math.random() - 0.5) * 60;
-    pnj.position.y = 1;
+    pnj.position.x = (Math.random() - 0.5) * 120;
+    pnj.position.z = (Math.random() - 0.5) * 120;
+    pnj.position.y = 1.5;
 
-    pnj.speed = 0.02 + Math.random() * 0.03;
+    pnj.speed = 0.03 + Math.random() * 0.05;
 
     scene.add(pnj);
     pnjList.push(pnj);
   }
 
-  camera.position.set(0, 5, 10);
+  camera.position.set(0, 6, 12);
 
   setupJoystick();
   window.addEventListener("resize", onResize);
@@ -128,17 +130,21 @@ function animate() {
   car.position.x += dx * speed;
   car.position.z += dy * speed;
 
-  // 🧍 PNJ movement
+  // 🧍 PNJ movement CLAIR
   for (let i = 0; i < pnjList.length; i++) {
+
     let p = pnjList[i];
 
     p.position.x += Math.sin(Date.now() * 0.001 + i) * p.speed;
     p.position.z += Math.cos(Date.now() * 0.001 + i) * p.speed;
+
+    // 🔥 petit effet vivant
+    p.position.y = 1.5 + Math.sin(Date.now() * 0.003 + i) * 0.2;
   }
 
   // 📷 caméra follow
   camera.position.x = car.position.x;
-  camera.position.z = car.position.z + 10;
+  camera.position.z = car.position.z + 12;
   camera.lookAt(car.position);
 
   renderer.render(scene, camera);
@@ -150,16 +156,16 @@ function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-/* 🎮 JOYSTICK */
+/* 🎮 JOYSTICK ULTRA STABLE */
 function setupJoystick() {
 
   const stick = document.getElementById("stick");
   const area = document.getElementById("joystickArea");
 
   const center = 70;
-  const maxDist = 50;
+  const max = 50;
 
-  function moveJoy(e) {
+  function move(e) {
 
     let t = e.touches[0];
     let rect = area.getBoundingClientRect();
@@ -169,19 +175,19 @@ function setupJoystick() {
 
     let dist = Math.sqrt(x*x + y*y);
 
-    if (dist > maxDist) {
-      x = (x / dist) * maxDist;
-      y = (y / dist) * maxDist;
+    if (dist > max) {
+      x = (x / dist) * max;
+      y = (y / dist) * max;
     }
 
     stick.style.transform = `translate(${x}px, ${y}px)`;
 
-    dx = x / maxDist;
-    dy = y / maxDist;
+    dx = x / max;
+    dy = y / max;
   }
 
-  area.addEventListener("touchstart", moveJoy);
-  area.addEventListener("touchmove", moveJoy);
+  area.addEventListener("touchstart", move);
+  area.addEventListener("touchmove", move);
 
   area.addEventListener("touchend", () => {
     dx = 0;
@@ -189,6 +195,7 @@ function setupJoystick() {
     stick.style.transform = "translate(0px,0px)";
   });
 }
+
 </script>
 
 </body>
