@@ -2,217 +2,117 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>GTA Dakar Next Engine</title>
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galsen Trip 3D</title>
 
 <style>
-body{margin:0;overflow:hidden;font-family:Arial;}
-
-#hud{
-position:fixed;
-top:10px;left:10px;
-background:rgba(0,0,0,0.6);
-color:white;
-padding:10px;
-border-radius:8px;
-z-index:10;
+body{
+    margin:0;
+    overflow:hidden;
+    background:#87CEEB;
 }
 
-.btn{
-position:fixed;
-width:70px;height:70px;
-background:rgba(255,255,255,0.15);
-color:white;
-text-align:center;
-line-height:70px;
-border-radius:15px;
-user-select:none;
-z-index:10;
+#info{
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    background:rgba(0,0,0,0.6);
+    padding:10px;
+    border-radius:8px;
+    font-family:Arial;
 }
-
-#up{bottom:160px;left:90px;}
-#down{bottom:40px;left:90px;}
-#left{bottom:100px;left:10px;}
-#right{bottom:100px;left:170px;}
 </style>
 </head>
-
 <body>
 
-<div id="hud">
-🌍 GTA DAKAR ENGINE<br>
-💰 <span id="money">0</span> ⭐ <span id="wanted">0</span>
+<div id="info">
+🎮 Galsen Trip 3D<br>
+🧍 PNJ chargé
 </div>
 
-<div id="up" class="btn">⬆️</div>
-<div id="down" class="btn">⬇️</div>
-<div id="left" class="btn">⬅️</div>
-<div id="right" class="btn">➡️</div>
+<script type="module">
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-
-<script>
-
-//////////////////////////////
-// 🎮 MINI ENGINE STRUCTURE
-//////////////////////////////
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xaad3ff, 50, 400);
+scene.background = new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.1,1000);
+const camera = new THREE.PerspectiveCamera(
+75,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth,innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.setSize(window.innerWidth,window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-//////////////////////////////
-// 💡 LIGHT (UNREAL STYLE)
-//////////////////////////////
+const light = new THREE.DirectionalLight(0xffffff,2);
+light.position.set(10,20,10);
+scene.add(light);
 
-const sun = new THREE.DirectionalLight(0xffffff,1.5);
-sun.position.set(100,150,50);
-sun.castShadow = true;
-scene.add(sun);
-
-scene.add(new THREE.AmbientLight(0x404040));
-
-//////////////////////////////
-// 🌍 TERRAIN (TEXTURE STYLE)
-//////////////////////////////
+scene.add(new THREE.AmbientLight(0xffffff,1));
 
 const ground = new THREE.Mesh(
-new THREE.PlaneGeometry(1000,1000),
-new THREE.MeshStandardMaterial({color:0x1f8a4c})
+new THREE.PlaneGeometry(100,100),
+new THREE.MeshStandardMaterial({color:0x2ecc71})
 );
+
 ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
 scene.add(ground);
 
-//////////////////////////////
-// 🏙 WORLD OBJECTS (ENGINE STYLE)
-//////////////////////////////
+const loader = new GLTFLoader();
 
-function createBuilding(x,z){
-const h = 10 + Math.random()*80;
+loader.load(
+"https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
 
-const b = new THREE.Mesh(
-new THREE.BoxGeometry(10,h,10),
-new THREE.MeshStandardMaterial({
-color:0x444444,
-roughness:0.9,
-metalness:0.1
-})
-);
+function(gltf){
 
-b.position.set(x,h/2,z);
-b.castShadow=true;
-scene.add(b);
-}
+const pnj = gltf.scene;
 
-for(let i=0;i<180;i++){
-createBuilding((Math.random()-0.5)*800,(Math.random()-0.5)*800);
-}
+pnj.position.set(0,0,0);
+pnj.scale.set(0.4,0.4,0.4);
 
-//////////////////////////////
-// 🚗 PLAYER (PHYSICS STYLE)
-//////////////////////////////
+scene.add(pnj);
 
-const car = new THREE.Mesh(
-new THREE.BoxGeometry(4,2,7),
-new THREE.MeshStandardMaterial({
-color:0x0077ff,
-metalness:0.6,
-roughness:0.3
-})
-);
-car.position.y=1;
-car.velocity = new THREE.Vector3();
-scene.add(car);
+const mixer = new THREE.AnimationMixer(pnj);
 
-//////////////////////////////
-// 👮 POLICE AI
-//////////////////////////////
-
-const police = new THREE.Mesh(
-new THREE.BoxGeometry(4,2,7),
-new THREE.MeshStandardMaterial({color:0xff0000})
-);
-police.position.set(50,1,50);
-scene.add(police);
-
-//////////////////////////////
-// 🎮 GAME STATE
-//////////////////////////////
-
-let money=0;
-let wanted=0;
-
-//////////////////////////////
-// 🎯 INPUT
-//////////////////////////////
-
-let key={up:false,down:false,left:false,right:false};
-
-document.getElementById("up").ontouchstart=()=>key.up=true;
-document.getElementById("up").ontouchend=()=>key.up=false;
-
-document.getElementById("down").ontouchstart=()=>key.down=true;
-document.getElementById("down").ontouchend=()=>key.down=false;
-
-document.getElementById("left").ontouchstart=()=>key.left=true;
-document.getElementById("left").ontouchend=()=>key.left=false;
-
-document.getElementById("right").ontouchstart=()=>key.right=true;
-document.getElementById("right").ontouchend=()=>key.right=false;
-
-//////////////////////////////
-// 🧠 UPDATE LOOP (ENGINE CORE)
-//////////////////////////////
-
-function update(){
-
-// 🚗 ACCELERATION (UNITY STYLE)
-let accel = 0.2;
-
-if(key.up) car.velocity.z -= accel;
-if(key.down) car.velocity.z += accel;
-if(key.left) car.velocity.x -= accel;
-if(key.right) car.velocity.x += accel;
-
-// friction
-car.velocity.multiplyScalar(0.92);
-
-// apply movement
-car.position.add(car.velocity);
-
-// 👮 POLICE AI (SMART FOLLOW)
-police.position.lerp(car.position,0.02);
-
-// 🎯 CAMERA FOLLOW
-camera.position.x = car.position.x + 15;
-camera.position.y = 20;
-camera.position.z = car.position.z + 25;
-camera.lookAt(car.position);
-}
-
-//////////////////////////////
-// 🎬 LOOP (ENGINE RENDER)
-//////////////////////////////
+if(gltf.animations.length > 0){
+const action = mixer.clipAction(gltf.animations[0]);
+action.play();
 
 function animate(){
+
 requestAnimationFrame(animate);
-update();
+
+mixer.update(0.01);
+
+pnj.rotation.y += 0.005;
+
 renderer.render(scene,camera);
 }
+
 animate();
+}
+}
+);
+
+camera.position.set(0,5,10);
+camera.lookAt(0,2,0);
 
 window.addEventListener("resize",()=>{
-camera.aspect=innerWidth/innerHeight;
+
+camera.aspect = window.innerWidth/window.innerHeight;
 camera.updateProjectionMatrix();
-renderer.setSize(innerWidth,innerHeight);
+
+renderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+
 });
 
 </script>
