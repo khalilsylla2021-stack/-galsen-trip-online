@@ -1,120 +1,160 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Galsen Trip 3D</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Galsen Trip V2</title>
 
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:#87CEEB;
+body {
+  margin: 0;
+  overflow: hidden;
 }
 
-#info{
-    position:absolute;
-    top:10px;
-    left:10px;
-    color:white;
-    background:rgba(0,0,0,0.6);
-    padding:10px;
-    border-radius:8px;
-    font-family:Arial;
+/* 🎮 zone joystick */
+#joystickArea {
+  position: absolute;
+  bottom: 40px;
+  left: 40px;
+  width: 140px;
+  height: 140px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+}
+
+/* 🕹️ stick */
+#stick {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: white;
+  border-radius: 50%;
+  top: 40px;
+  left: 40px;
+  touch-action: none;
+}
+
+/* canvas au-dessus */
+canvas {
+  display: block;
 }
 </style>
 </head>
+
 <body>
 
-<div id="info">
-🎮 Galsen Trip 3D<br>
-🧍 PNJ chargé
+<div id="joystickArea">
+  <div id="stick"></div>
 </div>
 
-<script type="module">
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+<script>
+let scene, camera, renderer;
+let car;
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+let joystick = {
+  active: false,
+  dx: 0,
+  dy: 0
+};
 
-const camera = new THREE.PerspectiveCamera(
-75,
-window.innerWidth/window.innerHeight,
-0.1,
-1000
-);
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth,window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-const light = new THREE.DirectionalLight(0xffffff,2);
-light.position.set(10,20,10);
-scene.add(light);
-
-scene.add(new THREE.AmbientLight(0xffffff,1));
-
-const ground = new THREE.Mesh(
-new THREE.PlaneGeometry(100,100),
-new THREE.MeshStandardMaterial({color:0x2ecc71})
-);
-
-ground.rotation.x = -Math.PI/2;
-scene.add(ground);
-
-const loader = new GLTFLoader();
-
-loader.load(
-"https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
-
-function(gltf){
-
-const pnj = gltf.scene;
-
-pnj.position.set(0,0,0);
-pnj.scale.set(0.4,0.4,0.4);
-
-scene.add(pnj);
-
-const mixer = new THREE.AnimationMixer(pnj);
-
-if(gltf.animations.length > 0){
-const action = mixer.clipAction(gltf.animations[0]);
-action.play();
-
-function animate(){
-
-requestAnimationFrame(animate);
-
-mixer.update(0.01);
-
-pnj.rotation.y += 0.005;
-
-renderer.render(scene,camera);
-}
-
+init();
 animate();
+
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // 🌍 sol
+  let ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshBasicMaterial({ color: 0x2ecc71 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+
+  // 🚗 voiture
+  car = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 1, 4),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  );
+  car.position.y = 0.5;
+  scene.add(car);
+
+  camera.position.set(0, 5, 10);
+  camera.lookAt(car.position);
+
+  setupJoystick();
+  window.addEventListener("resize", onResize);
 }
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  // 🚗 déplacement avec joystick
+  car.position.x += joystick.dx * 0.1;
+  car.position.z += joystick.dy * 0.1;
+
+  camera.position.x = car.position.x;
+  camera.position.z = car.position.z + 10;
+  camera.lookAt(car.position);
+
+  renderer.render(scene, camera);
 }
-);
 
-camera.position.set(0,5,10);
-camera.lookAt(0,2,0);
+function onResize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
 
-window.addEventListener("resize",()=>{
+/* 🎮 JOYSTICK LOGIC */
+function setupJoystick(){
+  const stick = document.getElementById("stick");
+  const area = document.getElementById("joystickArea");
 
-camera.aspect = window.innerWidth/window.innerHeight;
-camera.updateProjectionMatrix();
+  let centerX = 70;
+  let centerY = 70;
+  let maxDist = 50;
 
-renderer.setSize(
-window.innerWidth,
-window.innerHeight
-);
+  area.addEventListener("touchstart", (e)=>{
+    joystick.active = true;
+  });
 
-});
+  area.addEventListener("touchmove", (e)=>{
+    let touch = e.touches[0];
+    let rect = area.getBoundingClientRect();
 
+    let x = touch.clientX - rect.left - centerX;
+    let y = touch.clientY - rect.top - centerY;
+
+    let dist = Math.sqrt(x*x + y*y);
+
+    if(dist > maxDist){
+      x *= maxDist/dist;
+      y *= maxDist/dist;
+    }
+
+    stick.style.transform = `translate(${x}px, ${y}px)`;
+
+    joystick.dx = x / maxDist;
+    joystick.dy = y / maxDist;
+  });
+
+  area.addEventListener("touchend", ()=>{
+    joystick.active = false;
+    joystick.dx = 0;
+    joystick.dy = 0;
+    stick.style.transform = `translate(0px, 0px)`;
+  });
+}
 </script>
 
 </body>
