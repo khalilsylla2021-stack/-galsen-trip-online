@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Galsen Trip V2.3</title>
+<title>Galsen Trip V2.3.1</title>
 
 <style>
 body { margin: 0; overflow: hidden; }
@@ -50,7 +50,7 @@ canvas { display: block; }
 <div id="hud">
 💰 Argent: <span id="money">0</span><br>
 🚨 Recherche: <span id="wanted">0</span><br>
-🎯 Mission: <span id="mission">Aucune</span>
+🎯 Mission: <span id="mission">En cours</span>
 </div>
 
 <div id="joystickArea">
@@ -64,176 +64,236 @@ canvas { display: block; }
 let scene, camera, renderer;
 let car;
 
-let dx=0,dy=0;
-let speed=0.35;
+let dx = 0;
+let dy = 0;
+let speed = 0.35;
 
-let money=0;
-let wanted=0;
+let money = 0;
+let wanted = 0;
 
-// 🎯 mission system
-let missionActive=false;
+let pnjList = [];
+let policeList = [];
+
+// 🎯 mission
+let missionActive = false;
 let missionTarget;
-
-// 🧍 police
-let policeList=[];
 
 init();
 animate();
 
-function init(){
+function init() {
 
-  scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x87ceeb);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
 
-  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
 
-  renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(innerWidth,innerHeight);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(innerWidth, innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // 🌍 ville (Dakar simplifié)
-  let ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(400,400),
-    new THREE.MeshBasicMaterial({color:0x2ecc71})
+  // 🌍 sol
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(400, 400),
+    new THREE.MeshBasicMaterial({ color: 0x2ecc71 })
   );
-  ground.rotation.x=-Math.PI/2;
+  ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
-  // 🚗 joueur
-  car=new THREE.Mesh(
-    new THREE.BoxGeometry(2,1,4),
-    new THREE.MeshBasicMaterial({color:0xff0000})
+  // 🚗 voiture
+  car = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 1, 4),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
   );
-  car.position.y=0.5;
+  car.position.y = 0.5;
   scene.add(car);
 
-  camera.position.set(0,6,12);
+  camera.position.set(0, 6, 12);
+
+  // 🧍 humains (PNJ)
+  for (let i = 0; i < 12; i++) {
+    let p = createHuman(0x3366ff);
+
+    p.position.x = (Math.random() - 0.5) * 150;
+    p.position.z = (Math.random() - 0.5) * 150;
+
+    p.speed = 0.02 + Math.random() * 0.04;
+
+    scene.add(p);
+    pnjList.push(p);
+  }
 
   // 🚓 police
-  for(let i=0;i<4;i++){
-    let p=new THREE.Mesh(
-      new THREE.BoxGeometry(2,2,4),
-      new THREE.MeshBasicMaterial({color:0x000000})
+  for (let i = 0; i < 4; i++) {
+    let p = new THREE.Mesh(
+      new THREE.BoxGeometry(2, 2, 4),
+      new THREE.MeshBasicMaterial({ color: 0x000000 })
     );
-    p.position.set(rand(),1,rand());
-    p.speed=0.05;
+
+    p.position.set(rand(), 1, rand());
+    p.speed = 0.05;
+
     scene.add(p);
     policeList.push(p);
   }
 
-  // 🎯 première mission
+  setupJoystick();
   createMission();
 
-  setupJoystick();
-  window.addEventListener("resize",onResize);
+  window.addEventListener("resize", onResize);
 }
 
-function animate(){
+// 🧍 HUMAN MODEL
+function createHuman(color) {
+
+  let group = new THREE.Group();
+
+  let body = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1.5, 0.6),
+    new THREE.MeshBasicMaterial({ color })
+  );
+  body.position.y = 1.2;
+
+  let head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 0.8, 0.8),
+    new THREE.MeshBasicMaterial({ color: 0xffcc99 })
+  );
+  head.position.y = 2.3;
+
+  let leg1 = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 1, 0.3),
+    new THREE.MeshBasicMaterial({ color: 0x333333 })
+  );
+  leg1.position.set(-0.2, 0.3, 0);
+
+  let leg2 = leg1.clone();
+  leg2.position.x = 0.2;
+
+  group.add(body);
+  group.add(head);
+  group.add(leg1);
+  group.add(leg2);
+
+  return group;
+}
+
+function animate() {
   requestAnimationFrame(animate);
 
-  // 🚗 déplacement
-  car.position.x+=dx*speed;
-  car.position.z+=dy*speed;
+  // 🚗 voiture
+  car.position.x += dx * speed;
+  car.position.z += dy * speed;
 
   // 💰 argent
-  money+=0.05;
-  document.getElementById("money").innerText=Math.floor(money);
+  money += 0.05;
+  document.getElementById("money").innerText = Math.floor(money);
 
-  // 🚨 wanted level (augmente si tu bouges vite)
-  if(Math.abs(dx)+Math.abs(dy)>1.2){
-    wanted=Math.min(5,wanted+0.01);
+  // 🚨 wanted
+  if (Math.abs(dx) + Math.abs(dy) > 1.2) {
+    wanted = Math.min(5, wanted + 0.01);
   } else {
-    wanted=Math.max(0,wanted-0.01);
+    wanted = Math.max(0, wanted - 0.01);
   }
-  document.getElementById("wanted").innerText=Math.floor(wanted);
+  document.getElementById("wanted").innerText = Math.floor(wanted);
+
+  // 🧍 humains mouvement
+  pnjList.forEach((p, i) => {
+    p.position.x += Math.sin(Date.now() * 0.001 + i) * p.speed;
+    p.position.z += Math.cos(Date.now() * 0.001 + i) * p.speed;
+
+    p.position.y = Math.sin(Date.now() * 0.003 + i) * 0.1;
+  });
 
   // 🚓 police chase
-  policeList.forEach(p=>{
-    let dirX=car.position.x-p.position.x;
-    let dirZ=car.position.z-p.position.z;
+  policeList.forEach(p => {
+    let dxp = car.position.x - p.position.x;
+    let dzp = car.position.z - p.position.z;
 
-    p.position.x+=dirX*p.speed;
-    p.position.z+=dirZ*p.speed;
-
-    // collision police
-    if(Math.abs(dirX)<2 && Math.abs(dirZ)<2){
-      money=Math.max(0,money-1);
-    }
+    p.position.x += dxp * p.speed;
+    p.position.z += dzp * p.speed;
   });
 
   // 🎯 mission check
-  if(missionActive){
-    let dxm=car.position.x-missionTarget.x;
-    let dzm=car.position.z-missionTarget.z;
+  if (missionActive) {
+    let d = distance(car.position, missionTarget);
 
-    if(Math.sqrt(dxm*dxm+dzm*dzm)<5){
-      missionActive=false;
-      money+=100;
-      document.getElementById("mission").innerText="Réussie (+100💰)";
-      setTimeout(createMission,2000);
+    if (d < 6) {
+      missionActive = false;
+      money += 100;
+      document.getElementById("mission").innerText = "Réussi +100💰";
+      setTimeout(createMission, 2000);
     }
   }
 
-  camera.position.x=car.position.x;
-  camera.position.z=car.position.z+12;
+  camera.position.x = car.position.x;
+  camera.position.z = car.position.z + 12;
   camera.lookAt(car.position);
 
-  renderer.render(scene,camera);
+  renderer.render(scene, camera);
 }
 
-// 🎯 mission system
-function createMission(){
-  missionTarget={
-    x:(Math.random()-0.5)*150,
-    z:(Math.random()-0.5)*150
+function createMission() {
+  missionTarget = {
+    x: (Math.random() - 0.5) * 180,
+    z: (Math.random() - 0.5) * 180
   };
-  missionActive=true;
 
-  document.getElementById("mission").innerText="Va au point rouge";
+  missionActive = true;
+  document.getElementById("mission").innerText = "Va au point";
 }
 
-// 🎮 joystick
-function setupJoystick(){
+function distance(a, b) {
+  let dx = a.x - b.x;
+  let dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dz * dz);
+}
 
-  const stick=document.getElementById("stick");
-  const area=document.getElementById("joystickArea");
+function setupJoystick() {
 
-  const center=70,max=50;
+  const stick = document.getElementById("stick");
+  const area = document.getElementById("joystickArea");
 
-  function move(e){
-    let t=e.touches[0];
-    let r=area.getBoundingClientRect();
+  const center = 70;
+  const max = 50;
 
-    let x=t.clientX-r.left-center;
-    let y=t.clientY-r.top-center;
+  function move(e) {
+    let t = e.touches[0];
+    let r = area.getBoundingClientRect();
 
-    let d=Math.sqrt(x*x+y*y);
+    let x = t.clientX - r.left - center;
+    let y = t.clientY - r.top - center;
 
-    if(d>max){x=x/d*max;y=y/d*max;}
+    let d = Math.sqrt(x * x + y * y);
 
-    stick.style.transform=`translate(${x}px,${y}px)`;
+    if (d > max) {
+      x = (x / d) * max;
+      y = (y / d) * max;
+    }
 
-    dx=x/max;
-    dy=y/max;
+    stick.style.transform = `translate(${x}px,${y}px)`;
+
+    dx = x / max;
+    dy = y / max;
   }
 
-  area.addEventListener("touchstart",move);
-  area.addEventListener("touchmove",move);
+  area.addEventListener("touchstart", move);
+  area.addEventListener("touchmove", move);
 
-  area.addEventListener("touchend",()=>{
-    dx=0;dy=0;
-    stick.style.transform="translate(0px,0px)";
+  area.addEventListener("touchend", () => {
+    dx = 0;
+    dy = 0;
+    stick.style.transform = "translate(0px,0px)";
   });
 }
 
-function rand(){
-  return (Math.random()-0.5)*200;
+function rand() {
+  return (Math.random() - 0.5) * 200;
 }
 
-function onResize(){
-  camera.aspect=innerWidth/innerHeight;
+function onResize() {
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 }
 
 </script>
