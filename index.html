@@ -1,13 +1,13 @@
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Galsen Trip V5.1 - Dakar GTA</title>
+<title>Galsen Trip V5 - Dakar GTA</title>
 
 <style>
 body{margin:0;overflow:hidden;font-family:Arial;}
 
-/* MENU */
 #menu{
 position:absolute;width:100%;height:100%;
 background:#000;color:white;
@@ -16,25 +16,18 @@ justify-content:center;align-items:center;
 z-index:1000;
 }
 
-/* HUD */
 #hud{
 position:absolute;top:10px;left:10px;
 color:white;z-index:10;font-size:14px;
-background:rgba(0,0,0,0.3);
-padding:8px;
-border-radius:8px;
 }
 
-/* MINI MAP */
 #minimap{
 position:absolute;top:10px;right:10px;
-width:130px;height:130px;
+width:120px;height:120px;
 background:rgba(0,0,0,0.5);
-border:2px solid white;
-border-radius:8px;
+border:1px solid white;
 }
 
-/* JOYSTICK */
 #joystick{
 position:absolute;bottom:40px;left:40px;
 width:140px;height:140px;
@@ -47,16 +40,13 @@ position:absolute;width:60px;height:60px;
 background:white;border-radius:50%;
 top:40px;left:40px;
 }
-
-/* CANVAS */
-canvas{display:block;}
 </style>
 </head>
 
 <body>
 
 <div id="menu">
-<h1>🌍 Galsen Trip V5.1 - Dakar</h1>
+<h1>🌍 Galsen Trip V5 - Dakar</h1>
 <button onclick="startGame()">▶ Jouer</button>
 <button onclick="loadGame()">💾 Charger</button>
 </div>
@@ -64,14 +54,248 @@ canvas{display:block;}
 <div id="hud">
 💰 <span id="money">0</span> |
 🚨 <span id="wanted">0</span> |
-🌦️ <span id="weather">Soleil</span> |
-🕒 <span id="time">Jour</span>
+🎯 <span id="mission">Aucune</span>
 </div>
 
 <canvas id="minimap"></canvas>
 
-<div id="joystick">
-<div id="stick"></div>
-</div>
+<div id="joystick"><div id="stick"></div></div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<script>
+
+let scene,camera,renderer,car;
+let dx=0,dy=0;
+
+let money=0;
+let wanted=0;
+
+let zone="Plateau";
+let mission=null;
+
+let police=[];
+let npcs=[];
+let cars=[];
+
+let mapCanvas=document.getElementById("minimap");
+let ctx=mapCanvas.getContext("2d");
+
+function startGame(){
+document.getElementById("menu").style.display="none";
+init();
+animate();
+}
+
+function loadGame(){
+let s=JSON.parse(localStorage.getItem("saveV5"));
+if(s){
+money=s.money;
+wanted=s.wanted;
+}
+}
+
+function saveGame(){
+localStorage.setItem("saveV5",JSON.stringify({
+money,wanted
+}));
+}
+
+// 🌍 INIT WORLD
+function init(){
+
+scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+
+camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,5000);
+
+renderer=new THREE.WebGLRenderer();
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// sol Dakar (grand)
+let ground=new THREE.Mesh(
+new THREE.PlaneGeometry(4000,4000),
+new THREE.MeshBasicMaterial({color:0x1f8b4c})
+);
+ground.rotation.x=-Math.PI/2;
+scene.add(ground);
+
+// voiture joueur
+car=new THREE.Mesh(
+new THREE.BoxGeometry(2,1,4),
+new THREE.MeshBasicMaterial({color:0xff0000})
+);
+car.position.y=0.5;
+scene.add(car);
+
+// routes principales
+createRoad(0);
+createRoad(800);
+createRoad(-800);
+
+// voitures IA
+for(let i=0;i<40;i++){
+let v=new THREE.Mesh(
+new THREE.BoxGeometry(2,1,4),
+new THREE.MeshBasicMaterial({color:0xffff00})
+);
+v.position.set(rand(1200),0.5,rand(1200));
+v.speed=0.5+Math.random();
+scene.add(v);
+cars.push(v);
+}
+
+// PNJ par quartiers
+for(let i=0;i<60;i++){
+let p=createNPC();
+p.position.set(rand(1500),0,rand(1500));
+scene.add(p);
+npcs.push(p);
+}
+
+// police IA
+for(let i=0;i<8;i++){
+let p=new THREE.Mesh(
+new THREE.BoxGeometry(2,1,4),
+new THREE.MeshBasicMaterial({color:0x0000ff})
+);
+p.position.set(rand(1000),0.5,rand(1000));
+p.speed=1;
+scene.add(p);
+police.push(p);
+}
+
+camera.position.set(0,10,15);
+
+setupJoystick();
+}
+
+// 🛣️ routes Dakar
+function createRoad(offset){
+
+let road=new THREE.Mesh(
+new THREE.PlaneGeometry(4000,60),
+new THREE.MeshBasicMaterial({color:0x333333})
+);
+road.rotation.x=-Math.PI/2;
+road.position.z=offset;
+scene.add(road);
+}
+
+// 👤 NPC
+function createNPC(){
+let g=new THREE.Group();
+
+let body=new THREE.Mesh(
+new THREE.BoxGeometry(1,2,1),
+new THREE.MeshBasicMaterial({color:0x44aa88})
+);
+body.position.y=1;
+
+g.add(body);
+return g;
+}
+
+// 🎮 LOOP
+function animate(){
+requestAnimationFrame(animate);
+
+// joueur
+car.position.x+=dx*0.7;
+car.position.z+=dy*0.7;
+
+// wanted system
+if(Math.random()<0.002) wanted=Math.max(0,wanted-0.01);
+
+// police IA
+police.forEach(p=>{
+let d=distance(p,car);
+
+if(d<200){
+p.position.x+=(car.position.x-p.position.x)*0.01;
+p.position.z+=(car.position.z-p.position.z)*0.01;
+
+if(d<10) wanted+=0.5;
+}
+});
+
+// trafic
+cars.forEach(c=>{
+c.position.x+=c.speed;
+if(c.position.x>2000)c.position.x=-2000;
+});
+
+// NPC move zone-based
+npcs.forEach(n=>{
+n.position.x+=Math.sin(Date.now()*0.001)*0.2;
+n.position.z+=Math.cos(Date.now()*0.001)*0.2;
+});
+
+// minimap
+drawMap();
+
+// caméra follow
+camera.position.x+=(car.position.x-camera.position.x)*0.08;
+camera.position.z+=(car.position.z+15-camera.position.z)*0.08;
+camera.lookAt(car.position);
+
+renderer.render(scene,camera);
+}
+
+// 🗺️ MINI MAP
+function drawMap(){
+ctx.fillStyle="black";
+ctx.fillRect(0,0,120,120);
+
+ctx.fillStyle="red";
+ctx.fillRect(60,60,5,5);
+
+police.forEach(p=>{
+ctx.fillStyle="blue";
+ctx.fillRect(60+(p.position.x/50),60+(p.position.z/50),3,3);
+});
+}
+
+// joystick
+function setupJoystick(){
+let stick=document.getElementById("stick");
+let zone=document.getElementById("joystick");
+
+let center=70,max=50;
+
+zone.addEventListener("touchmove",(e)=>{
+let t=e.touches[0];
+let r=zone.getBoundingClientRect();
+
+let x=t.clientX-r.left-center;
+let y=t.clientY-r.top-center;
+
+let d=Math.sqrt(x*x+y*y);
+if(d>max){x=x/d*max;y=y/d*max;}
+
+stick.style.transform=`translate(${x}px,${y}px)`;
+
+dx=x/max;
+dy=y/max;
+});
+
+zone.addEventListener("touchend",()=>{
+dx=0;dy=0;
+stick.style.transform="translate(0,0)";
+});
+}
+
+// utils
+function rand(n){return (Math.random()-0.5)*n;}
+function distance(a,b){
+return Math.sqrt(
+(a.position.x-b.position.x)**2+
+(a.position.z-b.position.z)**2
+);
+}
+
+</script>
+</body>
+</html>
   
