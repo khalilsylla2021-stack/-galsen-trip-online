@@ -2,21 +2,20 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Galsen Trip GTA</title>
+<title>Galsen Trip Test</title>
 
 <style>
 body { margin:0; overflow:hidden; font-family:Arial; }
 canvas { display:block; background:#2ecc71; }
 
 #hud{
-    position:fixed;
-    top:10px;
-    left:10px;
-    background:rgba(0,0,0,0.7);
-    color:white;
-    padding:10px;
-    border-radius:8px;
-    font-size:14px;
+ position:fixed;
+ top:10px;
+ left:10px;
+ background:rgba(0,0,0,0.7);
+ color:white;
+ padding:10px;
+ border-radius:8px;
 }
 </style>
 </head>
@@ -24,7 +23,7 @@ canvas { display:block; background:#2ecc71; }
 <body>
 
 <div id="hud">
-🎮 GTA Galsen Trip<br>
+🎮 Galsen Trip<br>
 💰 Argent: <span id="money">0</span><br>
 ⭐ Wanted: <span id="wanted">0</span>
 </div>
@@ -38,29 +37,25 @@ const ctx=canvas.getContext("2d");
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
 
-const world={w:2000,h:2000};
+// 🚗 voiture AU CENTRE (donc toujours visible)
+let car={
+ x:canvas.width/2,
+ y:canvas.height/2,
+ size:40,
+ speed:6
+};
 
-// 🚗 voiture PLUS VISIBLE
-let car={x:1000,y:1000,size:25,speed:8};
-
-let cam={x:0,y:0};
+// 🎯 mission proche du joueur
+let mission={
+ x:car.x+100,
+ y:car.y+100
+};
 
 let money=0;
 let wanted=0;
 
-// 🎯 mission proche (important)
-let mission={
- x:800+Math.random()*200,
- y:800+Math.random()*200
-};
-
-// PNJ moins nombreux pour lisibilité
-let npcs=[];
-for(let i=0;i<10;i++){
- npcs.push({x:500+Math.random()*1000,y:500+Math.random()*1000});
-}
-
 let keys={};
+
 window.addEventListener("keydown",e=>keys[e.key]=true);
 window.addEventListener("keyup",e=>keys[e.key]=false);
 
@@ -71,25 +66,19 @@ if(keys["ArrowRight"])car.x+=car.speed;
 if(keys["ArrowUp"])car.y-=car.speed;
 if(keys["ArrowDown"])car.y+=car.speed;
 
-cam.x=car.x-canvas.width/2;
-cam.y=car.y-canvas.height/2;
-
-cam.x=Math.max(0,Math.min(world.w-canvas.width,cam.x));
-cam.y=Math.max(0,Math.min(world.h-canvas.height,cam.y));
-
-// 🎯 mission facile à atteindre
+// collision mission
 let dx=car.x-mission.x;
 let dy=car.y-mission.y;
 
-if(Math.sqrt(dx*dx+dy*dy)<50){
-money+=100;
-wanted=Math.min(5,wanted+1);
+if(Math.sqrt(dx*dx+dy*dy)<40){
+ money+=100;
+ wanted=Math.min(5,wanted+1);
 
-mission.x=500+Math.random()*1000;
-mission.y=500+Math.random()*1000;
+ mission.x=Math.random()*canvas.width;
+ mission.y=Math.random()*canvas.height;
 
-document.getElementById("money").innerText=money;
-document.getElementById("wanted").innerText=wanted;
+ document.getElementById("money").innerText=money;
+ document.getElementById("wanted").innerText=wanted;
 }
 }
 
@@ -97,40 +86,27 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// fond
+// fond vert
 ctx.fillStyle="#2ecc71";
-ctx.fillRect(-cam.x,-cam.y,world.w,world.h);
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-// routes simples
-ctx.strokeStyle="#222";
-ctx.lineWidth=3;
-for(let i=0;i<10;i++){
-ctx.beginPath();
-ctx.moveTo(200*i-cam.x,0-cam.y);
-ctx.lineTo(200*i-cam.x,world.h-cam.y);
-ctx.stroke();
-}
-
-// mission BIEN visible
+// mission (JAUNE TRÈS VISIBLE)
 ctx.fillStyle="yellow";
 ctx.beginPath();
-ctx.arc(mission.x-cam.x,mission.y-cam.y,20,0,Math.PI*2);
+ctx.arc(mission.x,mission.y,20,0,Math.PI*2);
 ctx.fill();
 
-// PNJ
-ctx.fillStyle="black";
-npcs.forEach(n=>{
-ctx.fillRect(n.x-cam.x,n.y-cam.y,12,12);
-});
-
-// voiture PLUS GROSSE
+// voiture (GROS CUBE BLANC)
 ctx.fillStyle="white";
-ctx.fillRect(car.x-cam.x,car.y-cam.y,car.size,car.size);
+ctx.fillRect(car.x,car.y,car.size,car.size);
+
+// texte debug
+ctx.fillStyle="black";
+ctx.fillText("CAR OK",car.x,car.y-10);
 
 if(wanted>0){
-ctx.fillStyle="red";
-ctx.font="20px Arial";
-ctx.fillText("🚓 POLICE ALERT",300,50);
+ ctx.fillStyle="red";
+ ctx.fillText("🚓 POLICE ALERT",300,50);
 }
 }
 
