@@ -2,15 +2,15 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Galsen Trip GTA</title>
+<title>GTA Open World Dakar</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 
 <style>
-body { margin:0; overflow:hidden; font-family:Arial; touch-action:none; }
+body { margin:0; overflow:hidden; font-family:Arial; }
 
-canvas { display:block; background:#2ecc71; }
+canvas { display:block; background:#1f8a4c; }
 
 #hud{
 position:fixed;
@@ -20,42 +20,19 @@ background:rgba(0,0,0,0.7);
 color:white;
 padding:10px;
 border-radius:8px;
+font-size:14px;
 z-index:10;
 }
-
-.btn{
-position:fixed;
-width:75px;
-height:75px;
-background:rgba(0,0,0,0.4);
-color:white;
-font-size:28px;
-text-align:center;
-line-height:75px;
-border-radius:15px;
-user-select:none;
-z-index:10;
-}
-
-#up{bottom:160px;left:90px;}
-#down{bottom:40px;left:90px;}
-#left{bottom:100px;left:10px;}
-#right{bottom:100px;left:170px;}
 </style>
 </head>
 
 <body>
 
 <div id="hud">
-🎮 GTA Galsen Trip<br>
+🌍 GTA DAKAR OPEN WORLD<br>
 💰 <span id="money">0</span><br>
 ⭐ <span id="wanted">0</span>
 </div>
-
-<div id="up" class="btn">⬆️</div>
-<div id="down" class="btn">⬇️</div>
-<div id="left" class="btn">⬅️</div>
-<div id="right" class="btn">➡️</div>
 
 <canvas id="game"></canvas>
 
@@ -66,52 +43,52 @@ const ctx=canvas.getContext("2d");
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
 
-// 🚗 PLAYER
-let car={x:canvas.width/2,y:canvas.height/2,size:45,speed:7};
+// 🌍 MONDE GRAND (DAKAR SIMPLIFIÉ)
+const world={w:3000,h:3000};
 
-// 🎮 GAME STATS
+// 🚗 JOUEUR
+let car={x:1500,y:1500,size:40,speed:8};
+
+// 🎯 STATS
 let money=0;
 let wanted=0;
 
-// 🎯 mission
-let mission={x:200,y:200};
+// 🎯 MISSIONS (points dans Dakar)
+let mission={
+x:1000+Math.random()*1000,
+y:1000+Math.random()*1000
+};
 
-// TOUCH CONTROL
-let c={up:false,down:false,left:false,right:false};
-
-document.getElementById("up").ontouchstart=()=>c.up=true;
-document.getElementById("up").ontouchend=()=>c.up=false;
-
-document.getElementById("down").ontouchstart=()=>c.down=true;
-document.getElementById("down").ontouchend=()=>c.down=false;
-
-document.getElementById("left").ontouchstart=()=>c.left=true;
-document.getElementById("left").ontouchend=()=>c.left=false;
-
-document.getElementById("right").ontouchstart=()=>c.right=true;
-document.getElementById("right").ontouchend=()=>c.right=false;
+// CAMERA
+let cam={x:0,y:0};
 
 function update(){
 
-if(c.left)car.x-=car.speed;
-if(c.right)car.x+=car.speed;
-if(c.up)car.y-=car.speed;
-if(c.down)car.y+=car.speed;
+// déplacement
+if(keys["ArrowLeft"])car.x-=car.speed;
+if(keys["ArrowRight"])car.x+=car.speed;
+if(keys["ArrowUp"])car.y-=car.speed;
+if(keys["ArrowDown"])car.y+=car.speed;
 
-// limite écran
-car.x=Math.max(0,Math.min(canvas.width,car.x));
-car.y=Math.max(0,Math.min(canvas.height,car.y));
+// caméra suit joueur
+cam.x=car.x-canvas.width/2;
+cam.y=car.y-canvas.height/2;
+
+// limites monde
+cam.x=Math.max(0,Math.min(world.w-canvas.width,cam.x));
+cam.y=Math.max(0,Math.min(world.h-canvas.height,cam.y));
 
 // mission
 let dx=car.x-mission.x;
 let dy=car.y-mission.y;
 
-if(Math.sqrt(dx*dx+dy*dy)<45){
-money+=100;
+if(Math.sqrt(dx*dx+dy*dy)<60){
+money+=150;
 wanted=Math.min(5,wanted+1);
 
-mission.x=Math.random()*canvas.width;
-mission.y=Math.random()*canvas.height;
+// nouvelle mission dans Dakar
+mission.x=Math.random()*world.w;
+mission.y=Math.random()*world.h;
 
 document.getElementById("money").innerText=money;
 document.getElementById("wanted").innerText=wanted;
@@ -122,27 +99,45 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// map
-ctx.fillStyle="#2ecc71";
-ctx.fillRect(0,0,canvas.width,canvas.height);
+// 🌍 carte Dakar (fond vert)
+ctx.fillStyle="#1f8a4c";
+ctx.fillRect(0,0,world.w,world.h);
 
-// mission
+// routes simples (grille ville)
+ctx.strokeStyle="#2b2b2b";
+for(let i=0;i<20;i++){
+ctx.beginPath();
+ctx.moveTo(i*150-cam.x,0-cam.y);
+ctx.lineTo(i*150-cam.x,world.h-cam.y);
+ctx.stroke();
+
+ctx.beginPath();
+ctx.moveTo(0-cam.x,i*150-cam.y);
+ctx.lineTo(world.w-cam.x,i*150-cam.y);
+ctx.stroke();
+}
+
+// mission (DAKAR OBJECTIF)
 ctx.fillStyle="yellow";
 ctx.beginPath();
-ctx.arc(mission.x,mission.y,20,0,Math.PI*2);
+ctx.arc(mission.x-cam.x,mission.y-cam.y,25,0,Math.PI*2);
 ctx.fill();
 
 // voiture
 ctx.fillStyle="white";
-ctx.fillRect(car.x,car.y,car.size,car.size);
+ctx.fillRect(car.x-cam.x,car.y-cam.y,car.size,car.size);
 
 // police alert
 if(wanted>0){
 ctx.fillStyle="red";
 ctx.font="22px Arial";
-ctx.fillText("🚓 POLICE ALERT",200,50);
+ctx.fillText("🚓 POLICE DAKAR ALERT",200,50);
 }
 }
+
+let keys={};
+window.addEventListener("keydown",e=>keys[e.key]=true);
+window.addEventListener("keyup",e=>keys[e.key]=false);
 
 function loop(){
 update();
@@ -150,12 +145,6 @@ draw();
 requestAnimationFrame(loop);
 }
 loop();
-</script>
-
-<script>
-if("serviceWorker" in navigator){
-navigator.serviceWorker.register("sw.js");
-}
 </script>
 
 </body>
