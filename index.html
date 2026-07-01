@@ -2,169 +2,137 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>GTA Dakar Real</title>
+<title>GTA 3D Mobile</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { margin:0; overflow:hidden; font-family:Arial; }
-canvas { display:block; background:#2e8b57; }
+body { margin:0; overflow:hidden; touch-action:none; }
 
 #hud{
 position:fixed;
 top:10px;
 left:10px;
-background:rgba(0,0,0,0.7);
 color:white;
+background:rgba(0,0,0,0.6);
 padding:10px;
 border-radius:8px;
 z-index:10;
 }
+
+.btn{
+position:fixed;
+width:70px;
+height:70px;
+background:rgba(255,255,255,0.2);
+color:white;
+text-align:center;
+line-height:70px;
+font-size:25px;
+border-radius:15px;
+user-select:none;
+z-index:10;
+}
+
+#up{bottom:160px;left:80px;}
+#down{bottom:40px;left:80px;}
+#left{bottom:100px;left:10px;}
+#right{bottom:100px;left:150px;}
 </style>
 </head>
 
 <body>
 
 <div id="hud">
-🌍 GTA DAKAR REAL<br>
-💰 <span id="money">0</span><br>
-⭐ <span id="wanted">0</span>
+🌍 GTA 3D MOBILE<br>
+💰 0 ⭐ 0
 </div>
 
-<canvas id="game"></canvas>
+<div id="up" class="btn">⬆️</div>
+<div id="down" class="btn">⬇️</div>
+<div id="left" class="btn">⬅️</div>
+<div id="right" class="btn">➡️</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
+// 🌍 SCÈNE
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2ecc71);
 
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+// 📷 CAMÉRA
+const camera = new THREE.PerspectiveCamera(
+75, window.innerWidth/window.innerHeight, 0.1, 1000
+);
 
-// 🌍 MONDE
-const world={w:2500,h:2500};
+// 🎮 RENDU
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-// 🚗 JOUEUR
-let car={x:1200,y:1200,size:20,speed:6};
+// 🌍 SOL (ville)
+const groundGeo = new THREE.PlaneGeometry(200,200);
+const groundMat = new THREE.MeshBasicMaterial({color:0x228B22});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+scene.add(ground);
 
-// 💰 STATS
-let money=0;
-let wanted=0;
+// 🚗 VOITURE (cube 3D)
+const carGeo = new THREE.BoxGeometry(1,1,2);
+const carMat = new THREE.MeshBasicMaterial({color:0xffffff});
+const car = new THREE.Mesh(carGeo, carMat);
+car.position.y = 0.5;
+scene.add(car);
 
-// 🎯 MISSION
-let mission={x:800,y:800};
+// 💡 lumière simple
+const light = new THREE.AmbientLight(0xffffff);
+scene.add(light);
 
-// 🧍 PNJ HUMAIN (PETITS PERSONNAGES)
-let pnj=[];
-for(let i=0;i<25;i++){
-pnj.push({
-x:Math.random()*world.w,
-y:Math.random()*world.h,
-dir:Math.random()*2*Math.PI
+// 📍 caméra position
+camera.position.set(0,5,8);
+camera.lookAt(car.position);
+
+// 🎮 CONTROLES
+let c = {up:false,down:false,left:false,right:false};
+
+document.getElementById("up").ontouchstart=()=>c.up=true;
+document.getElementById("up").ontouchend=()=>c.up=false;
+
+document.getElementById("down").ontouchstart=()=>c.down=true;
+document.getElementById("down").ontouchend=()=>c.down=false;
+
+document.getElementById("left").ontouchstart=()=>c.left=true;
+document.getElementById("left").ontouchend=()=>c.left=false;
+
+document.getElementById("right").ontouchstart=()=>c.right=true;
+document.getElementById("right").ontouchend=()=>c.right=false;
+
+function animate(){
+
+requestAnimationFrame(animate);
+
+// 🚗 mouvement voiture
+if(c.up) car.position.z -= 0.2;
+if(c.down) car.position.z += 0.2;
+if(c.left) car.position.x -= 0.2;
+if(c.right) car.position.x += 0.2;
+
+// 📷 caméra suit voiture
+camera.position.x = car.position.x;
+camera.position.z = car.position.z + 8;
+camera.lookAt(car.position);
+
+renderer.render(scene,camera);
+}
+
+animate();
+
+// 📱 resize mobile
+window.addEventListener("resize",()=>{
+camera.aspect = window.innerWidth/window.innerHeight;
+camera.updateProjectionMatrix();
+renderer.setSize(window.innerWidth,window.innerHeight);
 });
-}
-
-// CAMÉRA
-let cam={x:0,y:0};
-
-// CONTROLES
-let keys={};
-window.addEventListener("keydown",e=>keys[e.key]=true);
-window.addEventListener("keyup",e=>keys[e.key]=false);
-
-function update(){
-
-// joueur
-if(keys["ArrowLeft"])car.x-=car.speed;
-if(keys["ArrowRight"])car.x+=car.speed;
-if(keys["ArrowUp"])car.y-=car.speed;
-if(keys["ArrowDown"])car.y+=car.speed;
-
-// caméra
-cam.x=car.x-canvas.width/2;
-cam.y=car.y-canvas.height/2;
-
-// pnj mouvement (marche lente)
-pnj.forEach(p=>{
-p.x+=Math.cos(p.dir)*1;
-p.y+=Math.sin(p.dir)*1;
-
-if(Math.random()<0.01){
-p.dir=Math.random()*2*Math.PI;
-}
-});
-
-// mission
-let dx=car.x-mission.x;
-let dy=car.y-mission.y;
-
-if(Math.sqrt(dx*dx+dy*dy)<40){
-money+=100;
-wanted=Math.min(5,wanted+1);
-
-mission.x=Math.random()*world.w;
-mission.y=Math.random()*world.h;
-
-document.getElementById("money").innerText=money;
-document.getElementById("wanted").innerText=wanted;
-}
-}
-
-function draw(){
-
-ctx.clearRect(0,0,canvas.width,canvas.height);
-
-// 🌍 ville
-ctx.fillStyle="#2e8b57";
-ctx.fillRect(0,0,world.w,world.h);
-
-// routes
-ctx.strokeStyle="#1b1b1b";
-for(let i=0;i<15;i++){
-ctx.beginPath();
-ctx.moveTo(i*160-cam.x,0-cam.y);
-ctx.lineTo(i*160-cam.x,world.h-cam.y);
-ctx.stroke();
-
-ctx.beginPath();
-ctx.moveTo(0-cam.x,i*160-cam.y);
-ctx.lineTo(world.w-cam.x,i*160-cam.y);
-ctx.stroke();
-}
-
-// 🧍 PNJ humains (petits bonhommes)
-pnj.forEach(p=>{
-ctx.fillStyle="#ffd1a4"; // peau
-ctx.beginPath();
-ctx.arc(p.x-cam.x,p.y-cam.y,6,0,Math.PI*2);
-ctx.fill();
-
-// corps
-ctx.fillStyle="blue";
-ctx.fillRect(p.x-cam.x-4,p.y-cam.y+6,8,10);
-});
-
-// 🎯 mission
-ctx.fillStyle="yellow";
-ctx.beginPath();
-ctx.arc(mission.x-cam.x,mission.y-cam.y,10,0,Math.PI*2);
-ctx.fill();
-
-// 🚗 joueur
-ctx.fillStyle="white";
-ctx.fillRect(car.x-cam.x,car.y-cam.y,car.size,car.size);
-
-// police alert
-if(wanted>0){
-ctx.fillStyle="red";
-ctx.font="18px Arial";
-ctx.fillText("🚓 POLICE DAKAR",200,50);
-}
-}
-
-function loop(){
-update();
-draw();
-requestAnimationFrame(loop);
-}
-loop();
 </script>
 
 </body>
