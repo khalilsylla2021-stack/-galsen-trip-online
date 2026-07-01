@@ -2,12 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>GTA 3D Mobile</title>
+<title>GTA 3D Dakar Open World</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body { margin:0; overflow:hidden; touch-action:none; }
+body { margin:0; overflow:hidden; touch-action:none; font-family:Arial; }
 
 #hud{
 position:fixed;
@@ -44,7 +44,7 @@ z-index:10;
 <body>
 
 <div id="hud">
-🌍 GTA 3D MOBILE<br>
+🌍 GTA 3D DAKAR<br>
 💰 0 ⭐ 0
 </div>
 
@@ -58,42 +58,63 @@ z-index:10;
 <script>
 // 🌍 SCÈNE
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2ecc71);
+scene.background = new THREE.Color(0x87ceeb); // ciel
 
-// 📷 CAMÉRA
-const camera = new THREE.PerspectiveCamera(
-75, window.innerWidth/window.innerHeight, 0.1, 1000
-);
+// 📷 CAMERA
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-// 🎮 RENDU
-const renderer = new THREE.WebGLRenderer();
+// 🎮 RENDERER
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// 🌍 SOL (ville)
-const groundGeo = new THREE.PlaneGeometry(200,200);
-const groundMat = new THREE.MeshBasicMaterial({color:0x228B22});
-const ground = new THREE.Mesh(groundGeo, groundMat);
+// 🌍 SOL (VILLE DAKAR)
+const ground = new THREE.Mesh(
+new THREE.PlaneGeometry(500,500),
+new THREE.MeshBasicMaterial({color:0x2ecc71})
+);
 ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
-// 🚗 VOITURE (cube 3D)
-const carGeo = new THREE.BoxGeometry(1,1,2);
-const carMat = new THREE.MeshBasicMaterial({color:0xffffff});
-const car = new THREE.Mesh(carGeo, carMat);
-car.position.y = 0.5;
+// 🏙 BÂTIMENTS (Dakar stylisé)
+function addBuilding(x,z,color=0x888888){
+const b = new THREE.Mesh(
+new THREE.BoxGeometry(10,30,10),
+new THREE.MeshBasicMaterial({color})
+);
+b.position.set(x,15,z);
+scene.add(b);
+}
+
+for(let i=0;i<30;i++){
+addBuilding((Math.random()-0.5)*400, (Math.random()-0.5)*400, 0x555555);
+}
+
+// 🚗 VOITURE
+const car = new THREE.Mesh(
+new THREE.BoxGeometry(3,2,5),
+new THREE.MeshBasicMaterial({color:0xffffff})
+);
+car.position.y = 1;
 scene.add(car);
 
-// 💡 lumière simple
-const light = new THREE.AmbientLight(0xffffff);
-scene.add(light);
+// 🚓 POLICE (IA SIMPLE)
+const police = new THREE.Mesh(
+new THREE.BoxGeometry(3,2,5),
+new THREE.MeshBasicMaterial({color:0xff0000})
+);
+police.position.set(20,1,20);
+scene.add(police);
 
-// 📍 caméra position
-camera.position.set(0,5,8);
+// 🌤 lumière
+scene.add(new THREE.AmbientLight(0xffffff));
+
+// caméra
+camera.position.set(0,20,30);
 camera.lookAt(car.position);
 
 // 🎮 CONTROLES
-let c = {up:false,down:false,left:false,right:false};
+let c={up:false,down:false,left:false,right:false};
 
 document.getElementById("up").ontouchstart=()=>c.up=true;
 document.getElementById("up").ontouchend=()=>c.up=false;
@@ -107,29 +128,34 @@ document.getElementById("left").ontouchend=()=>c.left=false;
 document.getElementById("right").ontouchstart=()=>c.right=true;
 document.getElementById("right").ontouchend=()=>c.right=false;
 
-function animate(){
+// 🚗 UPDATE
+function update(){
 
-requestAnimationFrame(animate);
+if(c.up) car.position.z -= 0.6;
+if(c.down) car.position.z += 0.6;
+if(c.left) car.position.x -= 0.6;
+if(c.right) car.position.x += 0.6;
 
-// 🚗 mouvement voiture
-if(c.up) car.position.z -= 0.2;
-if(c.down) car.position.z += 0.2;
-if(c.left) car.position.x -= 0.2;
-if(c.right) car.position.x += 0.2;
+// 👮 police IA simple (poursuite)
+police.position.lerp(car.position,0.01);
 
-// 📷 caméra suit voiture
+// caméra suit
 camera.position.x = car.position.x;
-camera.position.z = car.position.z + 8;
+camera.position.z = car.position.z + 25;
 camera.lookAt(car.position);
-
-renderer.render(scene,camera);
 }
 
+// 🎮 LOOP
+function animate(){
+requestAnimationFrame(animate);
+update();
+renderer.render(scene,camera);
+}
 animate();
 
 // 📱 resize mobile
 window.addEventListener("resize",()=>{
-camera.aspect = window.innerWidth/window.innerHeight;
+camera.aspect=window.innerWidth/window.innerHeight;
 camera.updateProjectionMatrix();
 renderer.setSize(window.innerWidth,window.innerHeight);
 });
