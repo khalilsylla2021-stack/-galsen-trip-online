@@ -1,9 +1,134 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-<title>Galsen Trip Online</title>
+<meta charset="UTF-8">
+<title>Galsen Trip GTA</title>
+
+<style>
+body { margin:0; overflow:hidden; font-family:Arial; }
+canvas { display:block; background:#2ecc71; }
+
+#hud{
+    position:fixed;
+    top:10px;
+    left:10px;
+    background:rgba(0,0,0,0.7);
+    color:white;
+    padding:10px;
+    border-radius:8px;
+}
+</style>
 </head>
-<body style="margin:0;background:#2ecc71;color:white;text-align:center;font-size:30px;padding-top:200px;">
-🎮 Galsen Trip Online fonctionne 🚗🔥
+
+<body>
+
+<div id="hud">
+🎮 Galsen Trip GTA<br>
+💰 Argent: <span id="money">0</span><br>
+⭐ Wanted: <span id="wanted">0</span>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+const world={w:3000,h:2000};
+
+let car={x:1500,y:1000,w:30,h:15,speed:7};
+let cam={x:0,y:0};
+
+let money=0;
+let wanted=0;
+
+let npcs=[];
+for(let i=0;i<30;i++){
+ npcs.push({x:Math.random()*world.w,y:Math.random()*world.h});
+}
+
+let mission={x:Math.random()*world.w,y:Math.random()*world.h};
+
+let keys={};
+window.addEventListener("keydown",e=>keys[e.key]=true);
+window.addEventListener("keyup",e=>keys[e.key]=false);
+
+function update(){
+
+if(keys["ArrowLeft"])car.x-=car.speed;
+if(keys["ArrowRight"])car.x+=car.speed;
+if(keys["ArrowUp"])car.y-=car.speed;
+if(keys["ArrowDown"])car.y+=car.speed;
+
+car.x=Math.max(0,Math.min(world.w,car.x));
+car.y=Math.max(0,Math.min(world.h,car.y));
+
+cam.x=car.x-canvas.width/2;
+cam.y=car.y-canvas.height/2;
+
+cam.x=Math.max(0,Math.min(world.w-canvas.width,cam.x));
+cam.y=Math.max(0,Math.min(world.h-canvas.height,cam.y));
+
+// mission
+let dx=car.x-mission.x;
+let dy=car.y-mission.y;
+
+if(Math.sqrt(dx*dx+dy*dy)<40){
+money+=100;
+wanted=Math.min(5,wanted+1);
+mission.x=Math.random()*world.w;
+mission.y=Math.random()*world.h;
+document.getElementById("money").innerText=money;
+document.getElementById("wanted").innerText=wanted;
+}
+
+// NPC collision
+npcs.forEach(n=>{
+let dx=car.x-n.x;
+let dy=car.y-n.y;
+if(Math.sqrt(dx*dx+dy*dy)<20){
+wanted=Math.min(5,wanted+1);
+document.getElementById("wanted").innerText=wanted;
+}
+});
+}
+
+function draw(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ctx.fillStyle="#27ae60";
+ctx.fillRect(-cam.x,-cam.y,world.w,world.h);
+
+ctx.fillStyle="black";
+npcs.forEach(n=>{
+ctx.fillRect(n.x-cam.x,n.y-cam.y,10,10);
+});
+
+ctx.fillStyle="yellow";
+ctx.beginPath();
+ctx.arc(mission.x-cam.x,mission.y-cam.y,15,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.fillRect(car.x-cam.x,car.y-cam.y,car.w,car.h);
+
+if(wanted>0){
+ctx.fillStyle="red";
+ctx.fillText("🚓 POLICE ALERT",300,50);
+}
+}
+
+function loop(){
+update();
+draw();
+requestAnimationFrame(loop);
+}
+loop();
+</script>
+
 </body>
 </html>
