@@ -1,0 +1,15 @@
+{
+  "name": "Galsen Trip GTA",
+  "short_name": "Galsen GTA",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#2ecc71",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1995/1995574.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
