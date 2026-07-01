@@ -2,31 +2,60 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Galsen Trip Test</title>
+<title>Galsen Trip Mobile GTA</title>
 
 <style>
 body { margin:0; overflow:hidden; font-family:Arial; }
+
 canvas { display:block; background:#2ecc71; }
 
+/* HUD */
 #hud{
- position:fixed;
- top:10px;
- left:10px;
- background:rgba(0,0,0,0.7);
- color:white;
- padding:10px;
- border-radius:8px;
+position:fixed;
+top:10px;
+left:10px;
+background:rgba(0,0,0,0.7);
+color:white;
+padding:10px;
+border-radius:8px;
+font-size:14px;
+z-index:10;
 }
+
+/* BOUTONS MOBILE */
+.btn{
+position:fixed;
+width:70px;
+height:70px;
+background:rgba(0,0,0,0.5);
+color:white;
+font-size:30px;
+text-align:center;
+line-height:70px;
+border-radius:15px;
+user-select:none;
+z-index:10;
+}
+
+#up{bottom:160px;left:80px;}
+#down{bottom:40px;left:80px;}
+#left{bottom:100px;left:10px;}
+#right{bottom:100px;left:150px;}
 </style>
 </head>
 
 <body>
 
 <div id="hud">
-🎮 Galsen Trip<br>
-💰 Argent: <span id="money">0</span><br>
-⭐ Wanted: <span id="wanted">0</span>
+🎮 GTA Mobile<br>
+💰 <span id="money">0</span><br>
+⭐ <span id="wanted">0</span>
 </div>
+
+<div id="up" class="btn">⬆️</div>
+<div id="down" class="btn">⬇️</div>
+<div id="left" class="btn">⬅️</div>
+<div id="right" class="btn">➡️</div>
 
 <canvas id="game"></canvas>
 
@@ -37,48 +66,49 @@ const ctx=canvas.getContext("2d");
 canvas.width=window.innerWidth;
 canvas.height=window.innerHeight;
 
-// 🚗 voiture AU CENTRE (donc toujours visible)
-let car={
- x:canvas.width/2,
- y:canvas.height/2,
- size:40,
- speed:6
-};
-
-// 🎯 mission proche du joueur
-let mission={
- x:car.x+100,
- y:car.y+100
-};
-
+let car={x:canvas.width/2,y:canvas.height/2,size:40,speed:6};
 let money=0;
 let wanted=0;
 
-let keys={};
+let mission={
+x:Math.random()*canvas.width,
+y:Math.random()*canvas.height
+};
 
-window.addEventListener("keydown",e=>keys[e.key]=true);
-window.addEventListener("keyup",e=>keys[e.key]=false);
+let control={up:false,down:false,left:false,right:false};
+
+/* TOUCH CONTROLS */
+document.getElementById("up").ontouchstart=()=>control.up=true;
+document.getElementById("up").ontouchend=()=>control.up=false;
+
+document.getElementById("down").ontouchstart=()=>control.down=true;
+document.getElementById("down").ontouchend=()=>control.down=false;
+
+document.getElementById("left").ontouchstart=()=>control.left=true;
+document.getElementById("left").ontouchend=()=>control.left=false;
+
+document.getElementById("right").ontouchstart=()=>control.right=true;
+document.getElementById("right").ontouchend=()=>control.right=false;
 
 function update(){
 
-if(keys["ArrowLeft"])car.x-=car.speed;
-if(keys["ArrowRight"])car.x+=car.speed;
-if(keys["ArrowUp"])car.y-=car.speed;
-if(keys["ArrowDown"])car.y+=car.speed;
+if(control.left)car.x-=car.speed;
+if(control.right)car.x+=car.speed;
+if(control.up)car.y-=car.speed;
+if(control.down)car.y+=car.speed;
 
-// collision mission
 let dx=car.x-mission.x;
 let dy=car.y-mission.y;
 
 if(Math.sqrt(dx*dx+dy*dy)<40){
- money+=100;
- wanted=Math.min(5,wanted+1);
+money+=100;
+wanted=Math.min(5,wanted+1);
 
- mission.x=Math.random()*canvas.width;
- mission.y=Math.random()*canvas.height;
+mission.x=Math.random()*canvas.width;
+mission.y=Math.random()*canvas.height;
 
- document.getElementById("money").innerText=money;
- document.getElementById("wanted").innerText=wanted;
+document.getElementById("money").innerText=money;
+document.getElementById("wanted").innerText=wanted;
 }
 }
 
@@ -86,27 +116,22 @@ function draw(){
 
 ctx.clearRect(0,0,canvas.width,canvas.height);
 
-// fond vert
 ctx.fillStyle="#2ecc71";
 ctx.fillRect(0,0,canvas.width,canvas.height);
 
-// mission (JAUNE TRÈS VISIBLE)
+// mission
 ctx.fillStyle="yellow";
 ctx.beginPath();
 ctx.arc(mission.x,mission.y,20,0,Math.PI*2);
 ctx.fill();
 
-// voiture (GROS CUBE BLANC)
+// voiture
 ctx.fillStyle="white";
 ctx.fillRect(car.x,car.y,car.size,car.size);
 
-// texte debug
-ctx.fillStyle="black";
-ctx.fillText("CAR OK",car.x,car.y-10);
-
 if(wanted>0){
- ctx.fillStyle="red";
- ctx.fillText("🚓 POLICE ALERT",300,50);
+ctx.fillStyle="red";
+ctx.fillText("🚓 POLICE ALERT",300,50);
 }
 }
 
