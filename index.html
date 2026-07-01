@@ -3,44 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Galsen Trip V2.4</title>
+<title>Galsen Trip V2.5</title>
 
 <style>
-body { margin: 0; overflow: hidden; }
-canvas { display: block; }
+body { margin:0; overflow:hidden; }
+canvas { display:block; }
 
-/* 🎮 joystick */
 #joystickArea {
-  position: absolute;
-  bottom: 40px;
-  left: 40px;
-  width: 140px;
-  height: 140px;
-  background: rgba(255,255,255,0.25);
-  border-radius: 50%;
-  z-index: 10;
+  position:absolute;
+  bottom:40px;
+  left:40px;
+  width:140px;
+  height:140px;
+  background:rgba(255,255,255,0.25);
+  border-radius:50%;
+  z-index:10;
 }
 
 #stick {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  background: white;
-  border-radius: 50%;
-  top: 40px;
-  left: 40px;
-  touch-action: none;
+  position:absolute;
+  width:60px;
+  height:60px;
+  background:white;
+  border-radius:50%;
+  top:40px;
+  left:40px;
+  touch-action:none;
 }
 
-/* 🧭 HUD */
 #hud {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-  font-family: Arial;
-  z-index: 20;
-  font-size: 14px;
+  position:absolute;
+  top:10px;
+  left:10px;
+  color:white;
+  font-family:Arial;
+  z-index:20;
+  font-size:14px;
 }
 </style>
 </head>
@@ -50,7 +48,7 @@ canvas { display: block; }
 <div id="hud">
 💰 Argent: <span id="money">0</span><br>
 🚨 Recherche: <span id="wanted">0</span><br>
-📍 Zone: Ville
+📍 Zone: Dakar (Prototype)
 </div>
 
 <div id="joystickArea">
@@ -61,11 +59,10 @@ canvas { display: block; }
 
 <script>
 
-let scene, camera, renderer;
-let car;
+let scene,camera,renderer,car;
 
 let dx=0,dy=0;
-let speed=0.35;
+let speed=0.25;
 
 let money=0;
 let wanted=0;
@@ -87,19 +84,19 @@ function init(){
   renderer.setSize(innerWidth,innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // 🌍 sol
+  // sol
   const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(500,500),
+    new THREE.PlaneGeometry(600,600),
     new THREE.MeshBasicMaterial({color:0x2ecc71})
   );
   ground.rotation.x=-Math.PI/2;
   scene.add(ground);
 
-  // 🛣️ routes (simple croix de ville)
-  createRoad(0,0,300,20);
-  createRoad(0,0,20,300);
+  // routes
+  createRoad(0,0,400,25);
+  createRoad(0,0,25,400);
 
-  // 🚗 joueur
+  // joueur
   car=new THREE.Mesh(
     new THREE.BoxGeometry(2,1,4),
     new THREE.MeshBasicMaterial({color:0xff0000})
@@ -109,29 +106,28 @@ function init(){
 
   camera.position.set(0,6,12);
 
-  // 🧍 PNJ améliorés
-  for(let i=0;i<12;i++){
+  // PNJ
+  for(let i=0;i<15;i++){
     let p=createHuman();
-
-    p.position.x=(Math.random()-0.5)*200;
-    p.position.z=(Math.random()-0.5)*200;
+    p.position.set((Math.random()-0.5)*250,0,(Math.random()-0.5)*250);
 
     p.dir=Math.random()*Math.PI*2;
-    p.speed=0.03+Math.random()*0.03;
+    p.timer=0;
+    p.speed=0.02+Math.random()*0.03;
 
     scene.add(p);
     pnjList.push(p);
   }
 
-  // 🚗 trafic
-  for(let i=0;i<6;i++){
+  // trafic
+  for(let i=0;i<8;i++){
     let t=new THREE.Mesh(
       new THREE.BoxGeometry(2,1,4),
       new THREE.MeshBasicMaterial({color:0xffff00})
     );
 
-    t.position.set((Math.random()-0.5)*200,0.5,(Math.random()-0.5)*200);
-    t.speed=0.05;
+    t.position.set((Math.random()-0.5)*250,0.5,(Math.random()-0.5)*250);
+    t.speed=0.06;
 
     scene.add(t);
     traffic.push(t);
@@ -141,7 +137,7 @@ function init(){
   window.addEventListener("resize",onResize);
 }
 
-// 🧍 humain simple amélioré
+// humain
 function createHuman(){
   let g=new THREE.Group();
 
@@ -163,7 +159,7 @@ function createHuman(){
   return g;
 }
 
-// 🛣️ route
+// route
 function createRoad(x,z,w,h){
   let road=new THREE.Mesh(
     new THREE.PlaneGeometry(w,h),
@@ -177,42 +173,64 @@ function createRoad(x,z,w,h){
 function animate(){
   requestAnimationFrame(animate);
 
-  // 🚗 joueur
+  // joueur movement (normalisé)
+  let len=Math.sqrt(dx*dx+dy*dy);
+  if(len>1){dx/=len;dy/=len;}
+
   car.position.x+=dx*speed;
   car.position.z+=dy*speed;
 
-  // 💰 argent
-  money+=0.05;
+  // argent
+  money+=0.03;
   document.getElementById("money").innerText=Math.floor(money);
 
-  // 🚨 wanted
-  wanted=Math.max(0,wanted-0.01);
+  // wanted descend
+  wanted=Math.max(0,wanted-0.02);
   document.getElementById("wanted").innerText=Math.floor(wanted);
 
-  // 🧍 PNJ marche libre
-  pnjList.forEach((p,i)=>{
-    p.position.x+=Math.sin(Date.now()*0.001+i)*p.speed;
-    p.position.z+=Math.cos(Date.now()*0.001+i)*p.speed;
+  // collisions simples PNJ
+  pnjList.forEach(p=>{
+    p.position.x+=Math.cos(p.dir)*p.speed;
+    p.position.z+=Math.sin(p.dir)*p.speed;
 
-    // changement direction léger
-    if(Math.random()<0.01){
+    p.timer++;
+    if(p.timer>120){
       p.dir=Math.random()*Math.PI*2;
+      p.timer=0;
+    }
+
+    if(distance(car,p)<3){
+      wanted+=0.5;
     }
   });
 
-  // 🚗 trafic simple route
+  // trafic
   traffic.forEach(t=>{
     t.position.x+=t.speed;
     if(t.position.x>250)t.position.x=-250;
+
+    if(distance(car,t)<4){
+      wanted+=1;
+    }
   });
 
-  camera.position.x=car.position.x;
-  camera.position.z=car.position.z+12;
+  // caméra fluide
+  camera.position.x+=(car.position.x-camera.position.x)*0.1;
+  camera.position.z+=(car.position.z+12-camera.position.z)*0.1;
   camera.lookAt(car.position);
 
   renderer.render(scene,camera);
 }
 
+// distance helper
+function distance(a,b){
+  return Math.sqrt(
+    (a.position.x-b.position.x)**2+
+    (a.position.z-b.position.z)**2
+  );
+}
+
+// joystick
 function setupJoystick(){
   const stick=document.getElementById("stick");
   const area=document.getElementById("joystickArea");
@@ -227,7 +245,6 @@ function setupJoystick(){
     let y=t.clientY-r.top-center;
 
     let d=Math.sqrt(x*x+y*y);
-
     if(d>max){x=x/d*max;y=y/d*max;}
 
     stick.style.transform=`translate(${x}px,${y}px)`;
@@ -252,7 +269,6 @@ function onResize(){
 }
 
 </script>
-
 </body>
 </html>
   
